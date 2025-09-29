@@ -1,77 +1,59 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using System.Security.Principal;
-using System.Threading;
+using System;
+using YourApp.Models;
 
 namespace barberchainAPI.Data
 {
     public class BarberchainDbContext : DbContext
     {
         public BarberchainDbContext(DbContextOptions<BarberchainDbContext> options)
-        : base(options)
-        {
-        }
+            : base(options) { }
 
         public DbSet<Account> Accounts { get; set; }
         public DbSet<Barber> Barbers { get; set; }
-        public DbSet<Bshop> Bshops { get; set; }
-        public DbSet<BarberScheduleDay> BarberScheduleDays { get; set; }
+        public DbSet<Barbershop> Barbershops { get; set; }
         public DbSet<Job> Jobs { get; set; }
-        public DbSet<BarberJob> BarberJobs { get; set; }
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderJob> OrderJobs { get; set; }
-        public DbSet<BshopImage> BshopImages { get; set; }
-        public DbSet<BarberImage> BarberImages { get; set; }
+        public DbSet<Review> Reviews { get; set; }
+        public DbSet<BarberJob> BarberJobs { get; set; }
+        public DbSet<BarberScheduleDay> BarberScheduleDays { get; set; }
+        public DbSet<ImageBarber> BarberImages { get; set; }
+        public DbSet<ImageBshop> BarbershopImages { get; set; }
+        public DbSet<ModerationLog> ModerationLogs { get; set; }
+        public DbSet<Complaint> Complaints { get; set; }
+        public DbSet<ScheduleRequest> ScheduleRequests { get; set; }
+        public DbSet<AdminActionLog> AdminActionLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // Enum mapping (PostgreSQL)
-            modelBuilder.HasPostgresEnum<AccountRole>();
-            modelBuilder.HasPostgresEnum<OrderStatus>();
+            // Composite key for BarberJob
+            modelBuilder.Entity<BarberJob>()
+                .HasKey(bj => new { bj.BarberId, bj.JobId });
 
-            // Account
-            modelBuilder.Entity<Account>()
-                .Property(a => a.Role)
+            // Unique constraint for BarberScheduleDay (BarberId + Date)
+            modelBuilder.Entity<BarberScheduleDay>()
+                .HasIndex(bsd => new { bsd.BarberId, bsd.Date })
+                .IsUnique();
+
+            // Enum conversions (Postgres enums → C# enums)
+            modelBuilder.Entity<Order>()
+                .Property(o => o.Method)
                 .HasConversion<string>();
 
-            // One-to-one: Barber ↔ Account
-            modelBuilder.Entity<Barber>()
-            .HasOne(b => b.Account)
-            .WithOne()
-                .HasForeignKey<Barber>(b => b.FkAccount)
-                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<Complaint>()
+                .Property(c => c.Status)
+                .HasConversion<string>();
 
-            // Bshop → Manager Account (many-to-one)
-            modelBuilder.Entity<Bshop>()
-                .HasOne(b => b.Manager)
-                .WithMany()
-                .HasForeignKey(b => b.FkManagerAccount)
-                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<ScheduleRequest>()
+                .Property(sr => sr.Status)
+                .HasConversion<string>();
 
-            // BarberScheduleDay → Created By Manager (many-to-one)
-            modelBuilder.Entity<BarberScheduleDay>()
-                .HasOne(b => b.CreatedByManager)
-                .WithMany()
-                .HasForeignKey(b => b.FkManagerAccount)
-                .OnDelete(DeleteBehavior.SetNull);
-
-            // BarberJob: composite key
-            modelBuilder.Entity<BarberJob>()
-                .HasKey(bj => new { bj.FkBarber, bj.FkJob });
-
-            // OrderJobs: FK setup
-            modelBuilder.Entity<OrderJob>()
-                .HasOne(oj => oj.Order)
-                .WithMany(o => o.OrderJobs)
-                .HasForeignKey(oj => oj.FkOrder)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            modelBuilder.Entity<OrderJob>()
-                .HasOne(oj => oj.Job)
-                .WithMany()
-                .HasForeignKey(oj => oj.FkJob)
-                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<AdminActionLog>()
+                .Property(al => al.ActionType)
+                .HasConversion<string>();
         }
     }
 }

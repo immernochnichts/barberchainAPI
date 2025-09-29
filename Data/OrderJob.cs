@@ -1,15 +1,21 @@
-﻿namespace barberchainAPI.Data
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace YourApp.Models
 {
     public class OrderJob
     {
+        [Key]
         public int Id { get; set; }
 
-        public int FkOrder { get; set; }
-
-        public int FkJob { get; set; }
-
+        [Required]
+        public int OrderId { get; set; }
+        [ForeignKey(nameof(OrderId))]
         public Order Order { get; set; }
 
+        [Required]
+        public int JobId { get; set; }
+        [ForeignKey(nameof(JobId))]
         public Job Job { get; set; }
     }
 }

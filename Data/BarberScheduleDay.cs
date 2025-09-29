@@ -1,17 +1,26 @@
-﻿using System.Collections;
+using System;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
-namespace barberchainAPI.Data
+namespace YourApp.Models
 {
     public class BarberScheduleDay
     {
+        [Key]
         public int Id { get; set; }
 
-        public int FkBarber { get; set; }
-        public DateOnly Date { get; set; }
+        [Required]
+        public int BarberId { get; set; }
+        [ForeignKey(nameof(BarberId))]
+        public Barber Barber { get; set; }
 
-        public BitArray AtuPattern { get; set; }
+        [Required]
+        public DateTime Date { get; set; }
 
-        public int? FkManagerAccount { get; set; }
-        public Account? CreatedByManager { get; set; }
+        public byte[] AtuPattern { get; set; }
+
+        public int? ManagerAccountId { get; set; }
+        [ForeignKey(nameof(ManagerAccountId))]
+        public Account Manager { get; set; }
     }
 }

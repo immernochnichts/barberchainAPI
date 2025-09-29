@@ -1,33 +1,41 @@
-﻿using System.Threading;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
-namespace barberchainAPI.Data
+namespace YourApp.Models
 {
-    public enum OrderStatus
+    public enum OrderMethod
     {
-        Pending,
-        Accepted,
-        Waiting,
-        Processing,
-        Complete,
-        Declined
+        Online,
+        Phone
     }
 
     public class Order
     {
+        [Key]
         public int Id { get; set; }
 
-        public int? FkAccount { get; set; }      // Formerly client
-        public int? FkBarber { get; set; }
+        public int? AccountId { get; set; }
+        [ForeignKey(nameof(AccountId))]
+        public Account Account { get; set; }
 
+        [Required]
+        public int BarberId { get; set; }
+        [ForeignKey(nameof(BarberId))]
+        public Barber Barber { get; set; }
+
+        [Required]
         public DateTime OrderTime { get; set; }
 
+        [Required]
+        public string Status { get; set; } = "pending";
+
+        [Required]
         public DateTime AppointedTime { get; set; }
 
-        public OrderStatus Status { get; set; }
-
-        public Account? Account { get; set; }
-
-        public Barber? Barber { get; set; }
+        [Required]
+        public OrderMethod Method { get; set; } = OrderMethod.Online;
 
         public ICollection<OrderJob> OrderJobs { get; set; }
     }

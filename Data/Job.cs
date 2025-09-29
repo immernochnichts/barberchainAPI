@@ -1,20 +1,22 @@
-﻿namespace barberchainAPI.Data
+using System.ComponentModel.DataAnnotations;
+
+namespace YourApp.Models
 {
     public class Job
     {
+        [Key]
         public int Id { get; set; }
 
+        [Required, MaxLength(256)]
         public string Name { get; set; }
 
+        [Required, MaxLength(2048)]
         public string Descr { get; set; }
 
-        // Duration in atomic time units (15 minutes)
+        [Required]
         public short DurationAtu { get; set; }
 
+        [Required]
         public short DefaultPrice { get; set; }
-
-        public ICollection<BarberJob> BarberJobs { get; set; }
-
-        public ICollection<OrderJob> OrderJobs { get; set; }
     }
 }

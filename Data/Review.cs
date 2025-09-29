@@ -1,15 +1,27 @@
-﻿namespace barberchainAPI.Data
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace YourApp.Models
 {
     public class Review
     {
+        [Key]
         public int Id { get; set; }
 
-        public int AccountId { get; set; }  // fk_account
+        [Required]
+        public int AccountId { get; set; }
+        [ForeignKey(nameof(AccountId))]
+        public Account Account { get; set; }
 
-        public int BarberId { get; set; }   // fk_barber
+        [Required]
+        public int BarberId { get; set; }
+        [ForeignKey(nameof(BarberId))]
+        public Barber Barber { get; set; }
 
-        public string? Text { get; set; }
+        public string Text { get; set; }
 
-        public short? Score { get; set; }   // Score between 0 and 5
+        public short? Score { get; set; }
+
+        public bool IsDeleted { get; set; } = false;
     }
 }

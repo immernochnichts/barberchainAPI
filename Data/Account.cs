@@ -1,33 +1,41 @@
-﻿namespace barberchainAPI.Data
-{
-    public enum AccountRole
-    {
-        User,
-        Barber,
-        Manager,
-        Admin
-    }
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
+namespace YourApp.Models
+{
     public class Account
     {
+        [Key]
         public int Id { get; set; }
 
+        [Required, MaxLength(256)]
         public string Lastname { get; set; }
+
+        [Required, MaxLength(256)]
         public string Restname { get; set; }
 
-        public string Bio { get; set; }
+        [MaxLength(256)]
+        public string Email { get; set; }
 
-        public DateTime BirthDate { get; set; }
-
-        public string? Email { get; set; }
-
+        [Required]
         public byte[] Hash { get; set; }
 
+        [Required]
         public DateTime RegTime { get; set; }
 
-        public byte[]? ProfilePic { get; set; }
-        public byte[]? ProfilePicPreview { get; set; }
+        public byte[] ProfilePic { get; set; }
 
-        public AccountRole Role { get; set; }
+        [Required]
+        public string Role { get; set; } = "user";
+
+        [MaxLength(256)]
+        public string Bio { get; set; }
+
+        public DateTime? BirthDate { get; set; }
+
+        // Navigation
+        public ICollection<Review> Reviews { get; set; }
+        public ICollection<Order> Orders { get; set; }
     }
 }

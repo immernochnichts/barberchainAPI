@@ -3,18 +3,16 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace YourApp.Models
 {
-    public class BarberJob
+    public class ImageBarber
     {
-        [Key, Column(Order = 0)]
+        [Key]
+        public int Id { get; set; }
+
+        [Required]
         public int BarberId { get; set; }
         [ForeignKey(nameof(BarberId))]
         public Barber Barber { get; set; }
 
-        [Key, Column(Order = 1)]
-        public int JobId { get; set; }
-        [ForeignKey(nameof(JobId))]
-        public Job Job { get; set; }
-
-        public short Price { get; set; }
+        public byte[] ImgFile { get; set; }
     }
 }
