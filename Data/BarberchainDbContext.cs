@@ -23,7 +23,7 @@ namespace barberchainAPI.Data
         public DbSet<ModerationLog> ModerationLogs { get; set; }
         public DbSet<Complaint> Complaints { get; set; }
         public DbSet<ScheduleRequest> ScheduleRequests { get; set; }
-        public DbSet<AdminActionLog> AdminActionLogs { get; set; }
+        public DbSet<ActionLog> ActionLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -32,6 +32,10 @@ namespace barberchainAPI.Data
             // Composite key for BarberJob
             modelBuilder.Entity<BarberJob>()
                 .HasKey(bj => new { bj.BarberId, bj.JobId });
+
+            // Composite key for OrderJob
+            modelBuilder.Entity<OrderJob>()
+                .HasKey(oj => new { oj.OrderId, oj.JobId });
 
             // Unique constraint for BarberScheduleDay (BarberId + Date)
             modelBuilder.Entity<BarberScheduleDay>()
@@ -51,7 +55,7 @@ namespace barberchainAPI.Data
                 .Property(sr => sr.Status)
                 .HasConversion<string>();
 
-            modelBuilder.Entity<AdminActionLog>()
+            modelBuilder.Entity<ActionLog>()
                 .Property(al => al.ActionType)
                 .HasConversion<string>();
         }
