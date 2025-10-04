@@ -5,6 +5,16 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace YourApp.Models
 {
+    public enum OrderStatus
+    {
+        Pending,
+        Accepted,
+        Waiting,
+        Processing,
+        Complete,
+        Declined
+    }
+
     public enum OrderMethod
     {
         Online,
@@ -29,7 +39,7 @@ namespace YourApp.Models
         public DateTime OrderTime { get; set; }
 
         [Required]
-        public string Status { get; set; } = "pending";
+        public OrderStatus Status { get; set; } = OrderStatus.Pending;
 
         [Required]
         public DateTime AppointedTime { get; set; }

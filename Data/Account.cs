@@ -4,6 +4,14 @@ using System.ComponentModel.DataAnnotations;
 
 namespace YourApp.Models
 {
+    public enum AccountRole
+    {
+        User,
+        Barber,
+        Manager,
+        Admin
+    }
+
     public class Account
     {
         [Key]
@@ -27,7 +35,7 @@ namespace YourApp.Models
         public byte[] ProfilePic { get; set; }
 
         [Required]
-        public string Role { get; set; } = "user";
+        public AccountRole Role { get; set; } = AccountRole.User;
 
         [MaxLength(256)]
         public string Bio { get; set; }

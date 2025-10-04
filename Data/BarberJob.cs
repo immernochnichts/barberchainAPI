@@ -15,6 +15,6 @@ namespace YourApp.Models
         [ForeignKey(nameof(JobId))]
         public Job Job { get; set; }
 
-        public short Price { get; set; }
+        public double Price { get; set; }
     }
 }

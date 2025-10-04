@@ -17,6 +17,6 @@ namespace YourApp.Models
         public short DurationAtu { get; set; }
 
         [Required]
-        public short DefaultPrice { get; set; }
+        public double DefaultPrice { get; set; }
     }
 }
