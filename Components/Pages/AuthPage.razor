@@ -1,0 +1,192 @@
+﻿@page "/auth"
+@rendermode InteractiveServer
+@using System.Text.RegularExpressions
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@using System.ComponentModel.DataAnnotations
+@using System.Security.Claims
+@inject BarberchainDbContext Context
+@inject IHttpContextAccessor HttpContextAccessor
+
+<MudGrid Style="width: 40%" Class="mx-auto">
+    @if (!regPressed)
+    {
+        <MudItem Class="mx-auto" xs="12" sm="7">
+            <MudPaper Class="pa-4">
+                <MudForm @ref="form" @bind-IsValid="success" @bind-Errors="errors">
+                    <MudTextField T="string" Label="Email" @bind-Value="loginEmail"
+                                  Required="true" RequiredError="Адрес эл. почты обязателен"
+                                  Validation="@(new EmailAddressAttribute { ErrorMessage = "Недопустимый адрес эл. почты" })" />
+                    <MudTextField T="string" Label="Password" @bind-Value="loginPassword"
+                                  InputType="InputType.Password"
+                                  Required="true" RequiredError="Пароль обязателен" />
+                    <div class="d-flex align-center justify-space-between">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!success)" Class="mr-auto mt-4" @onclick="LoginAsync">Войти</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mr-auto mt-4" @onclick="Toggle">Зарегистрироваться</MudButton>
+                    </div>
+                </MudForm>
+            </MudPaper>
+        </MudItem>
+    }
+    else
+    {
+        <MudItem Class="mx-auto" xs="12" sm="7">
+            <MudPaper Class="pa-4">
+                <MudForm @ref="form" @bind-IsValid="success" @bind-Errors="errors">
+                    <MudTextField T="string" Label="Фамилия (псевдоним)" @bind-Value="regLastname"
+                                  Required="true" RequiredError="Поле обязательно для ввода" />
+                    <MudTextField T="string" Label="Имя Отчество" @bind-Value="regRestname" />
+                    <MudTextField T="string" Label="Email" @bind-Value="regEmail"
+                                  Required="true" RequiredError="Адрес эл. почты обязателен"
+                                  Validation="@(new EmailAddressAttribute { ErrorMessage = "Недопустимый адрес эл. почты" })" />
+                    <MudTextField T="string" Label="Password" @bind-Value="regPassword"
+                                  InputType="InputType.Password"
+                                  Required="true" RequiredError="Пароль обязателен"
+                                  Validation="@(PasswordStrength)" />
+                    <MudTextField T="string" Label="Повторите пароль" @bind-Value="regPasswordConfirm"
+                                  InputType="InputType.Password"
+                                  Validation="@(PasswordMatch)" />
+                    <div class="d-flex align-center justify-space-between">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!success)" Class="mr-auto mt-4" @onclick="RegisterAsync">Зарегистрироваться</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mr-auto mt-4" @onclick="Toggle">Войти</MudButton>
+                    </div>
+                </MudForm>
+            </MudPaper>
+        </MudItem>
+    }
+</MudGrid>
+
+@code {
+    bool success;
+    string[] errors = { };
+
+    MudForm form;
+    bool regPressed = false;
+
+    string loginEmail;
+    string loginPassword;
+
+    string regLastname;
+    string regRestname;
+    string regEmail;
+    string regPassword;
+    string regPasswordConfirm;
+
+    private void Toggle()
+    {
+        regPressed = !regPressed;
+        ClearForm();
+        form.ResetValidation();
+    }
+
+    private IEnumerable<string> PasswordStrength(string pw)
+    {
+        if (string.IsNullOrWhiteSpace(pw))
+        {
+            yield return "Требуется пароль";
+            yield break;
+        }
+        if (pw.Length < 8)
+            yield return "Пароль должен состоять из по крайней мере 8-ми символов";
+        if (!Regex.IsMatch(pw, @"[0-9]"))
+            yield return "Пароль должен содержать по крайней мере одну цифру";
+    }
+
+    private string PasswordMatch(string pwConfirm)
+    {
+        if (regPassword != pwConfirm)
+            return "Пароли не совпадают";
+        return null;
+    }
+
+    private string VerifyLoginPassword(string pw)
+    {
+        var acc = Context.Accounts.FirstOrDefault(a => a.Email == loginEmail);
+        if (acc == null)
+            return "Неверный адрес эл. почты или пароль";
+
+        var hashString = System.Text.Encoding.UTF8.GetString(acc.Hash);
+        if (!BCrypt.Net.BCrypt.Verify(loginPassword, hashString))
+            return "Неверный адрес эл. почты или пароль";
+
+        return null;
+    }
+
+    private void ClearForm()
+    {
+        loginEmail = loginPassword = string.Empty;
+        regLastname = regRestname = regEmail = regPassword = regPasswordConfirm = string.Empty;
+    }
+
+    public async Task RegisterAsync()
+    {
+        await form.Validate();
+        if (!success)
+            return;
+
+        var hashString = BCrypt.Net.BCrypt.HashPassword(regPassword);
+        var hashBytes = System.Text.Encoding.UTF8.GetBytes(hashString);
+
+        var account = new Account
+            {
+                Lastname = regLastname,
+                Restname = regRestname,
+                Email = regEmail,
+                Hash = hashBytes,
+                RegTime = DateTime.UtcNow,
+                Role = AccountRole.User
+            };
+
+        Context.Accounts.Add(account);
+        await Context.SaveChangesAsync();
+
+        ClearForm();
+        regPressed = false;
+        form.ResetValidation();
+        StateHasChanged();
+    }
+
+    public async Task LoginAsync()
+    {
+        await form.Validate();
+        if (!success || VerifyLoginPassword() != null)
+            return;
+
+        var acc = Context.Accounts.FirstOrDefault(a => a.Email == loginEmail);
+        if (acc == null)
+        {
+            errors = new[] { "Неверный адрес эл. почты или пароль" };
+            return;
+        }
+
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, acc.Id.ToString()),
+            new Claim(ClaimTypes.Name, acc.Email ?? ""),
+            new Claim(ClaimTypes.Role, acc.Role.ToString())
+        };
+
+        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = new ClaimsPrincipal(identity);
+
+        var authProperties = new AuthenticationProperties
+            {
+                IsPersistent = true,
+                ExpiresUtc = DateTimeOffset.UtcNow.AddDays(7)
+            };
+
+        var context = HttpContextAccessor.HttpContext;
+        if (context != null)
+        {
+            await context.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                principal,
+                authProperties
+            );
+        }
+
+        ClearForm();
+        form.ResetValidation();
+        StateHasChanged();
+    }
+}

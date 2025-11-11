@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -21,7 +22,7 @@ namespace barberchainAPI.Data
         public DateTime Date { get; set; }
 
         [Column("atu_pattern")]
-        public byte[] AtuPattern { get; set; }
+        public BitArray AtuPattern { get; set; }
 
         [Column("fk_manager_account")]
         public int? ManagerAccountId { get; set; }

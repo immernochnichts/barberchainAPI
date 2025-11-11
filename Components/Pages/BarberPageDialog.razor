@@ -1,0 +1,80 @@
+﻿@rendermode InteractiveServer
+@using MudBlazor;
+@using System.Collections;
+
+<style>
+    .timeline-wrapper {
+        overflow-x: auto;
+        width: 100%;
+    }
+
+    .hour-markers,
+    .availability-line {
+        display: flex;
+    }
+
+    .hour-marker {
+        flex: 0 0 auto; /* prevent shrinking */
+        width: 80px; /* 4 slots per hour */
+        text-align: left;
+        font-size: 12px;
+    }
+
+    .time-block {
+        flex: 0 0 auto; /* prevent shrinking */
+        width: 20px;
+        height: 20px;
+        border: 1px solid #ccc;
+    }
+
+        .time-block.available {
+            background-color: #4CAF50;
+        }
+
+        .time-block.unavailable {
+            background-color: #eee;
+        }
+</style>
+
+<MudDialog>
+    <TitleContent>
+        Выберите временные промежутки
+    </TitleContent>
+    <DialogContent>
+        <div class="timeline-container">
+            <div class="hour-markers">
+                @for (int i = 0; i < AtuPattern.Length; i += 4)
+                {
+                    int hour = i / 4;
+                    <div class="hour-marker">@hour:00</div>
+                }
+            </div>
+
+            <div class="availability-line">
+                @for (int i = 0; i < AtuPattern.Length; i++)
+                {
+                    bool bit = AtuPattern[i];
+                    <div class="time-block @(bit ? "available" : "unavailable")"></div>
+                }
+            </div>
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">OK</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; }
+
+    [Parameter]
+    public BitArray AtuPattern { get; set; }
+
+    public bool vacantEncountered { get; set; } = false;
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void Submit() => MudDialog.Close();
+}

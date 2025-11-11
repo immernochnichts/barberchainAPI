@@ -1,5 +1,6 @@
 using barberchainAPI.Components;
 using barberchainAPI.Data;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
 
@@ -15,9 +16,19 @@ namespace barberchainAPI
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
 
-            builder.Services.AddDbContext<BarberchainDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+            builder.Services.AddDbContext<BarberchainDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"),
+                o => o.MapEnum<AccountRole>("account_role")));
             builder.Services.AddMudServices();
             builder.Services.AddControllers();
+            builder.Services.AddHttpContextAccessor();
+
+            builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+                .AddCookie(options =>
+                {
+                    options.LoginPath = "/auth";     // redirect for unauthorized users
+                    options.AccessDeniedPath = "/forbidden";
+                    options.ExpireTimeSpan = TimeSpan.FromDays(7);
+                });
 
             var app = builder.Build();
 
@@ -34,9 +45,12 @@ namespace barberchainAPI
             app.UseStaticFiles();
             app.UseAntiforgery();
 
+            app.UseAuthentication();
+            app.UseAuthorization();
+
             app.MapControllers();
 
-            app.MapRazorComponents<App>()
+            app.MapRazorComponents<barberchainAPI.Components.App>()
                 .AddInteractiveServerRenderMode();
 
             app.Run();

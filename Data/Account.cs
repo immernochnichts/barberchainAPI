@@ -7,10 +7,10 @@ namespace barberchainAPI.Data
 {
     public enum AccountRole
     {
-        User,
+        Admin,
         Barber,
-        Manager,
-        Admin
+        User,
+        Manager
     }
 
     public class Account
@@ -40,7 +40,7 @@ namespace barberchainAPI.Data
         public DateTime RegTime { get; set; }
 
         [Column("profile_pic")]
-        public byte[] ProfilePic { get; set; }
+        public byte[]? ProfilePic { get; set; }
 
         [Required]
         [Column("role")]

@@ -32,6 +32,8 @@ namespace barberchainAPI.Data
             modelBuilder.Entity<Account>().ToTable("account");
             modelBuilder.Entity<ImageBarber>().ToTable("images_barber");
             modelBuilder.Entity<BarberScheduleDay>().ToTable("barber_schedule_day");
+            modelBuilder.Entity<BarberJob>().ToTable("barber_job");
+            modelBuilder.Entity<Job>().ToTable("job");
 
             // Composite key for BarberJob
             modelBuilder.Entity<BarberJob>()
@@ -63,9 +65,10 @@ namespace barberchainAPI.Data
                 .Property(al => al.ActionType)
                 .HasConversion<string>();
 
+            modelBuilder.HasPostgresEnum<AccountRole>("account_role");
             modelBuilder.Entity<Account>()
                 .Property(a => a.Role)
-                .HasConversion<string>();
+                .HasColumnType("account_role");
         }
     }
 }
