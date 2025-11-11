@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace YourApp.Models
+namespace barberchainAPI.Data
 {
     public class OrderJob
     {

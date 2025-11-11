@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System;
-using YourApp.Models;
 
 namespace barberchainAPI.Data
 {
@@ -28,6 +27,11 @@ namespace barberchainAPI.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<Barber>().ToTable("barber");
+            modelBuilder.Entity<Account>().ToTable("account");
+            modelBuilder.Entity<ImageBarber>().ToTable("images_barber");
+            modelBuilder.Entity<BarberScheduleDay>().ToTable("barber_schedule_day");
 
             // Composite key for BarberJob
             modelBuilder.Entity<BarberJob>()
@@ -57,6 +61,10 @@ namespace barberchainAPI.Data
 
             modelBuilder.Entity<ActionLog>()
                 .Property(al => al.ActionType)
+                .HasConversion<string>();
+
+            modelBuilder.Entity<Account>()
+                .Property(a => a.Role)
                 .HasConversion<string>();
         }
     }

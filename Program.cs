@@ -1,8 +1,7 @@
 using barberchainAPI.Components;
 using barberchainAPI.Data;
 using Microsoft.EntityFrameworkCore;
-using Npgsql.EntityFrameworkCore.PostgreSQL;
-using Microsoft.Extensions.DependencyInjection;
+using MudBlazor.Services;
 
 namespace barberchainAPI
 {
@@ -16,8 +15,9 @@ namespace barberchainAPI
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
 
-            builder.Services.AddDbContext<BarberchainDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("DeafultConnection")));
-
+            builder.Services.AddDbContext<BarberchainDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+            builder.Services.AddMudServices();
+            builder.Services.AddControllers();
 
             var app = builder.Build();
 
@@ -33,6 +33,8 @@ namespace barberchainAPI
 
             app.UseStaticFiles();
             app.UseAntiforgery();
+
+            app.MapControllers();
 
             app.MapRazorComponents<App>()
                 .AddInteractiveServerRenderMode();
