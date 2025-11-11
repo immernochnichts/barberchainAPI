@@ -1,0 +1,154 @@
+﻿@page "/barber/{id:int}"
+@using System.IO
+@inject BarberchainDbContext Context
+<MudPopoverProvider />
+<MudThemeProvider />
+
+<style>
+    .availability-line {
+        display: flex;
+        width: 100%;
+        height: 20px; /* height of the line */
+        border: 1px solid #ccc;
+        margin-top: 10px;
+    }
+
+    .time-block {
+        flex: 1 1 0;
+        border-right: 1px solid #eee; /* optional divider */
+    }
+
+    .time-block.available {
+        background-color: white;
+    }
+
+    .time-block.unavailable {
+        background-color: gray;
+    }
+</style>
+
+@if (barber == null)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudContainer Style="max-width:800px;" Class="mx-auto mt-4">
+
+        <MudPaper Elevation="3" Class="p-4 rounded-lg">
+            <!-- Profile Section -->
+            <MudContainer Style="display:flex; padding-top:1rem;">
+                <MudImage Src="@GetImageSrc(barber.Account.ProfilePic)" Class="rounded-lg" Elevation="25" ObjectFit="ObjectFit.Cover" Style="max-width:50%;" />
+                <MudContainer Style="display:flex; flex-direction:column; align-items:flex-start;">
+                    <MudText Typo="Typo.h5" Align="Align.Center">@barber.Account.Lastname @barber.Account.Restname</MudText>
+                    <MudText Typo="Typo.body1" Align="Align.Center" Class="text-secondary">
+                        @barber.Account.Bio
+                    </MudText>
+                </MudContainer>
+            </MudContainer>
+
+            <MudDivider Class="my-4" />
+
+            <!-- Auxiliary Pictures Grid -->
+            <MudText Typo="Typo.h6" Class="mb-2">Gallery</MudText>
+            @if (barber.Images != null && barber.Images.Any())
+            {
+                @foreach (var img in barber.Images)
+                {
+                    <MudGrid GutterSize="2">
+                        <MudItem xs="6" sm="4" md="3">
+                            <MudPaper Elevation="1" Class="p-1 rounded">
+                                <MudImage Src="@GetImageSrc(img.ImgFile)" Alt="Auxiliary image" Style="width:100%;height:auto;" />
+                            </MudPaper>
+                        </MudItem>
+                    </MudGrid>
+                }
+            }
+            else
+            {
+                <MudText Align="Align.Left">No images available</MudText>
+            }
+
+            <MudDivider Class="my-4" />
+
+            <!-- Calendar Section -->
+            <MudText Typo="Typo.h6" Class="mb-2">Schedule</MudText>
+            <MudDatePicker PickerVariant="PickerVariant.Static" Orientation="Orientation.Landscape" Date="@(DateTime.Today)" @bind-value="_selectedDate" />
+
+            <MudDivider Class="my-4" />
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ToggleOpen">Open schedule</MudButton>
+
+            <MudPopover Open="@_open" Fixed="true" Class="px-4 pt-4">
+                <div class="d-flex flex-column">
+                    <MudText>Content of the popover can be anything.</MudText>
+                    <MudButton OnClick="@ToggleOpen" Class="ml-auto mr-n3 mb-1" Color="Color.Error">Close</MudButton>
+                </div>
+                <div class="availability-line">
+                    @for (int i = 0; i < atuPattern.Length; i++)
+                    {
+                        for (int j = 0; j < 8; j++)
+                        {
+                            byte bitmask = 1;
+                            bitmask <<= j;
+                            bool currentBit = (atuPattern[i] & bitmask) == 1;
+
+
+                            <div class="time-block @(currentBit ? ".available" : ".unavailable")"></div>
+                        }
+                    }
+                </div>
+            </MudPopover>
+
+        </MudPaper>
+    </MudContainer>
+}
+
+@code
+{
+    [Parameter]
+    public int id { get; set; }
+
+    private bool _open;
+    private void ToggleOpen() => _open = !_open;
+
+    private byte[] atuPattern { get; set; }
+    private Barber? barber;
+    private DateTime? _selectedDate = DateTime.Today;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load the barber and related data (account, images, etc.)
+        barber = await Context.Barbers
+            .Include(b => b.Account)
+            .Include(b => b.Images)
+            .FirstOrDefaultAsync(b => b.Id == id);
+
+        atuPattern = await GetAvailabilityForDay(id, _selectedDate);
+    }
+
+    // Helper to convert a byte[] image from DB to base64 for MudImage or MudAvatar
+    private string GetImageSrc(byte[]? imageBytes)
+    {
+        if (imageBytes == null || imageBytes.Length == 0)
+            return "images/default-profile.jpg"; // fallback
+
+        string base64 = Convert.ToBase64String(imageBytes);
+        return $"data:image/jpeg;base64,{base64}";
+    }
+
+    public async Task<byte[]> GetAvailabilityForDay(int barberId, DateTime? day)
+    {
+        var availability = await Context.BarberScheduleDays
+            .Where(a => a.BarberId == barberId && a.Date == day.Value.ToUniversalTime())
+            .Select(a => a.AtuPattern)
+            .FirstOrDefaultAsync();
+
+        if (availability is null)
+        {
+            availability = new byte[12] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        }
+
+        return availability;
+    }
+}
