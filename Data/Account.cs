@@ -25,7 +25,7 @@ namespace barberchainAPI.Data
 
         [Required, MaxLength(256)]
         [Column("restname")]
-        public string Restname { get; set; }
+        public string? Restname { get; set; }
 
         [MaxLength(256)]
         [Column("email")]
@@ -48,7 +48,7 @@ namespace barberchainAPI.Data
 
         [MaxLength(256)]
         [Column("bio")]
-        public string Bio { get; set; }
+        public string? Bio { get; set; }
 
         [Column("birth_date")]
         public DateTime? BirthDate { get; set; }

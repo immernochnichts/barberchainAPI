@@ -1,4 +1,8 @@
-﻿@inherits LayoutComponentBase
+﻿@namespace barberchainAPI.Components.Layout
+@using Microsoft.AspNetCore.Components.Authorization
+@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
 <MudPopoverProvider />
 <MudThemeProvider />
 
@@ -7,7 +11,7 @@
         <MudText Typo="Typo.h5" Class="ml-3">Barberchain</MudText>
         <MudSpacer />
         <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End" />
-        <MudIconButton OnClick="Test" Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" Edge="Edge.End" />
+        <MudIconButton @onclick="AccessProfile" Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" Edge="Edge.End" />
     </MudAppBar>
     <MudMainContent>
         @Body
@@ -15,8 +19,18 @@
 </MudLayout>
 
 @code {
-    private void Test()
+    private async Task AccessProfile()
     {
-        
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            var userIdClaim = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(userIdClaim, out var userId))
+            {
+                Navigation.NavigateTo($"/account/{userId}");
+            }
+        }
     }
 }

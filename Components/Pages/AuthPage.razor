@@ -1,12 +1,8 @@
 ﻿@page "/auth"
-@rendermode InteractiveServer
 @using System.Text.RegularExpressions
-@using Microsoft.AspNetCore.Authentication
-@using Microsoft.AspNetCore.Authentication.Cookies
 @using System.ComponentModel.DataAnnotations
-@using System.Security.Claims
-@inject BarberchainDbContext Context
-@inject IHttpContextAccessor HttpContextAccessor
+@inject IHttpClientFactory HttpClientFactory
+@inject NavigationManager Navigation
 
 <MudGrid Style="width: 40%" Class="mx-auto">
     @if (!regPressed)
@@ -57,15 +53,17 @@
 </MudGrid>
 
 @code {
+    // Form state
     bool success;
     string[] errors = { };
-
     MudForm form;
     bool regPressed = false;
 
+    // Login fields
     string loginEmail;
     string loginPassword;
 
+    // Registration fields
     string regLastname;
     string regRestname;
     string regEmail;
@@ -79,6 +77,12 @@
         form.ResetValidation();
     }
 
+    private void ClearForm()
+    {
+        loginEmail = loginPassword = string.Empty;
+        regLastname = regRestname = regEmail = regPassword = regPasswordConfirm = string.Empty;
+    }
+
     private IEnumerable<string> PasswordStrength(string pw)
     {
         if (string.IsNullOrWhiteSpace(pw))
@@ -89,7 +93,7 @@
         if (pw.Length < 8)
             yield return "Пароль должен состоять из по крайней мере 8-ми символов";
         if (!Regex.IsMatch(pw, @"[0-9]"))
-            yield return "Пароль должен содержать по крайней мере одну цифру";
+            yield return "Пароль должен содержать хотя бы одну цифру";
     }
 
     private string PasswordMatch(string pwConfirm)
@@ -99,94 +103,74 @@
         return null;
     }
 
-    private string VerifyLoginPassword(string pw)
-    {
-        var acc = Context.Accounts.FirstOrDefault(a => a.Email == loginEmail);
-        if (acc == null)
-            return "Неверный адрес эл. почты или пароль";
-
-        var hashString = System.Text.Encoding.UTF8.GetString(acc.Hash);
-        if (!BCrypt.Net.BCrypt.Verify(loginPassword, hashString))
-            return "Неверный адрес эл. почты или пароль";
-
-        return null;
-    }
-
-    private void ClearForm()
-    {
-        loginEmail = loginPassword = string.Empty;
-        regLastname = regRestname = regEmail = regPassword = regPasswordConfirm = string.Empty;
-    }
-
-    public async Task RegisterAsync()
+    private async Task RegisterAsync()
     {
         await form.Validate();
-        if (!success)
+        if (!success) return;
+
+        var client = HttpClientFactory.CreateClient("server");
+        var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            { "Lastname", regLastname },
+            { "Restname", regRestname ?? "" },
+            { "Email", regEmail },
+            { "Password", regPassword }
+        });
+
+        var response = await client.PostAsync("api/auth/register", content);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var text = await response.Content.ReadAsStringAsync();
+            errors = new[] { text.Contains("Email") ? "Email уже зарегистрирован" : "Ошибка регистрации" };
             return;
+        }
 
-        var hashString = BCrypt.Net.BCrypt.HashPassword(regPassword);
-        var hashBytes = System.Text.Encoding.UTF8.GetBytes(hashString);
+        // Registration successful → automatically log in
+        var loginContent = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            { "email", regEmail },
+            { "password", regPassword }
+        });
 
-        var account = new Account
-            {
-                Lastname = regLastname,
-                Restname = regRestname,
-                Email = regEmail,
-                Hash = hashBytes,
-                RegTime = DateTime.UtcNow,
-                Role = AccountRole.User
-            };
+        var loginResponse = await client.PostAsync("api/auth/login", loginContent);
 
-        Context.Accounts.Add(account);
-        await Context.SaveChangesAsync();
+        if (!loginResponse.IsSuccessStatusCode)
+        {
+            // Fallback: if login fails, show message but keep user on login form
+            errors = new[] { "Регистрация успешна, но автоматический вход не удался. Войдите вручную." };
+            Toggle(); // switch to login form
+            return;
+        }
 
+        // Clear form and navigate to home
         ClearForm();
         regPressed = false;
         form.ResetValidation();
         StateHasChanged();
+        Navigation.NavigateTo("/", true);
     }
 
-    public async Task LoginAsync()
+    private async Task LoginAsync()
     {
         await form.Validate();
-        if (!success || VerifyLoginPassword() != null)
-            return;
+        if (!success) return;
 
-        var acc = Context.Accounts.FirstOrDefault(a => a.Email == loginEmail);
-        if (acc == null)
+        var client = HttpClientFactory.CreateClient("server");
+        var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            { "email", loginEmail },
+            { "password", loginPassword }
+        });
+
+        var response = await client.PostAsync("api/auth/login", content);
+
+        if (!response.IsSuccessStatusCode)
         {
             errors = new[] { "Неверный адрес эл. почты или пароль" };
             return;
         }
 
-        var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.NameIdentifier, acc.Id.ToString()),
-            new Claim(ClaimTypes.Name, acc.Email ?? ""),
-            new Claim(ClaimTypes.Role, acc.Role.ToString())
-        };
-
-        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-        var principal = new ClaimsPrincipal(identity);
-
-        var authProperties = new AuthenticationProperties
-            {
-                IsPersistent = true,
-                ExpiresUtc = DateTimeOffset.UtcNow.AddDays(7)
-            };
-
-        var context = HttpContextAccessor.HttpContext;
-        if (context != null)
-        {
-            await context.SignInAsync(
-                CookieAuthenticationDefaults.AuthenticationScheme,
-                principal,
-                authProperties
-            );
-        }
-
-        ClearForm();
-        form.ResetValidation();
-        StateHasChanged();
+        Navigation.NavigateTo("/", true);
     }
 }

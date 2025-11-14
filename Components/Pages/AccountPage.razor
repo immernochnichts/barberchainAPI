@@ -1,10 +1,11 @@
 ﻿@page "/account/{id:int}"
-@rendermode InteractiveServer
 @using System.IO
+@using Microsoft.AspNetCore.Components.Authorization
 @using MudBlazor
 @using System.Collections;
 @inject BarberchainDbContext Context
 @inject IDialogService DialogService;
+@inject AuthenticationStateProvider AuthStateProvider
 <MudDialogProvider />
 
 @if (account == null)
@@ -15,12 +16,15 @@ else
 {
     <MudContainer Style="max-width:800px;" Class="mx-auto mt-4">
 
-        <MudButtonGroup Color="Color.Primary" Variant="Variant.Filled">
+        @if (IsOwner)
+        {
+            <MudButtonGroup Color="Color.Primary" Variant="Variant.Filled">
             <MudButton>Профиль</MudButton>
             <MudButton>Мои отзывы</MudButton>
             <MudButton>Уведомления</MudButton>
             <MudButton>История заказов</MudButton>
-        </MudButtonGroup>
+            </MudButtonGroup>
+        }
 
         <MudPaper Elevation="3" Class="p-4 rounded-lg">
             <!-- Profile Section -->
@@ -42,6 +46,7 @@ else
 {
     [Parameter]
     public int id { get; set; }
+    private bool IsOwner = false;
 
     private Account? account;
 
@@ -51,6 +56,18 @@ else
     {
         account = await Context.Accounts
             .FirstOrDefaultAsync(a => a.Id == id);
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            var userIdClaim = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(userIdClaim, out var userId))
+            {
+                IsOwner = userId == id;
+            }
+        }
     }
 
     public static string GetImageSrc(byte[]? imageBytes)

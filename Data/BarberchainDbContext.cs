@@ -69,6 +69,11 @@ namespace barberchainAPI.Data
             modelBuilder.Entity<Account>()
                 .Property(a => a.Role)
                 .HasColumnType("account_role");
+            modelBuilder.Entity<Account>()
+                .Property(e => e.Restname)
+                .HasMaxLength(256)
+                .IsRequired(false); // explicitly nullable
+
         }
     }
 }

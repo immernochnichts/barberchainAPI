@@ -1,6 +1,10 @@
 using barberchainAPI.Components;
 using barberchainAPI.Data;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Server;
+using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
 
@@ -12,15 +16,21 @@ namespace barberchainAPI
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
+            builder.Services.AddRazorPages();
+
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
+
+            builder.Services.AddServerSideBlazor();
 
             builder.Services.AddDbContext<BarberchainDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"),
                 o => o.MapEnum<AccountRole>("account_role")));
             builder.Services.AddMudServices();
             builder.Services.AddControllers();
-            builder.Services.AddHttpContextAccessor();
+            builder.Services.AddHttpClient("server", client =>
+            {
+                client.BaseAddress = new Uri("https://localhost:7027/");
+            });
 
             builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddCookie(options =>
@@ -30,6 +40,8 @@ namespace barberchainAPI
                     options.ExpireTimeSpan = TimeSpan.FromDays(7);
                 });
 
+            builder.Services.AddScoped<AuthenticationStateProvider, ServerAuthenticationStateProvider>();
+            
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.
