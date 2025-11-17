@@ -1,0 +1,133 @@
+﻿@page "/barbershop/{Id:int}"
+@using barberchainAPI.Functional
+@inject NavigationManager Navigation
+@inject BarberchainDbContext Context
+@inject CartService CartService
+
+@using barberchainAPI.Data  <!-- Namespace with Barbershop model -->
+@using MudBlazor
+
+@if (Barbershop is null)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudContainer Style="max-width:800px;" Class="mx-auto mt-4">
+        <MudPaper Class="pa-4">
+
+            @if (Barbershop == null)
+            {
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+            }
+            else
+            {
+                <MudGrid>
+                    <MudItem xs="12" sm="6">
+                        <!-- Map placeholder -->
+                        <MudPaper Class="pa-2" Style="height:200px; display:flex; align-items:center; justify-content:center; background:#eee;">
+                            Map placeholder
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudText Typo="Typo.h4">@Barbershop.Address</MudText>
+                        <MudText Typo="Typo.subtitle1">📞 @Barbershop.Phone</MudText>
+                        <MudText Typo="Typo.subtitle2">
+                            🕒 @(oh < 10 ? "0" + oh : oh):@(om < 10 ? "0" + om : om) - @(ch < 10 ? "0" + ch : ch):@(cm < 10 ? "0" + cm : cm)
+                        </MudText>
+                    </MudItem>
+                </MudGrid>
+
+                <MudDivider Class="my-4" />
+
+                <MudText Typo="Typo.h5" Class="mb-2 d-flex">Service</MudText>
+                <MudList T="string" Class="d-flex flex-wrap">
+                    @foreach (var job in Service)
+                    {
+                        <MudContainer Class="d-flex mb-4" Style="align-items:center;">
+                            <MudListItem Style="width:max-content;" Text=@job.Name SecondaryText="" />
+                            <MudButton @onclick="async () => await CartService.AddToCart(job)" Variant="Variant.Filled" Style="background-color:black; height:fit-content;"></MudButton>
+                            <!--<MudContainer Style="width:80px; background:black;" Class="rounded"></MudContainer>-->
+                        </MudContainer>
+                    }
+                </MudList>
+
+                <MudDivider Class="my-4" />
+
+                <MudText Typo="Typo.h5" Class="mb-2">Barbers</MudText>
+                <MudGrid>
+                    @foreach (var barber in Barbershop.Barbers)
+                    {
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudCard>
+                                <MudCardContent>
+                                    <MudText Typo="Typo.subtitle1">@barber.Account.Lastname @barber.Account.Restname</MudText>
+                                    <MudImage Src="@AccountPage.GetImageSrc(barber.Account.ProfilePic)" Alt="Barber profile pic" Class="rounded" ObjectFit="ObjectFit.Cover" Style="width:100%;height:auto;" />
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                    }
+                </MudGrid>
+
+                <MudDivider Class="my-4" />
+
+                <MudText Typo="Typo.h5" Class="mb-2">Gallery</MudText>
+                <MudGrid>
+                    @foreach (var image in Barbershop.Images)
+                    {
+                        <MudItem xs="6" sm="4" md="3">
+                            <MudPaper Elevation="1" Class="pa-1">
+                                <MudImage Src="@AccountPage.GetImageSrc(image.ImgFile)" Alt="Auxiliary image" Style="width:100%;height:auto;" />
+                            </MudPaper>
+                        </MudItem>
+                    }
+                </MudGrid>
+            }
+        </MudPaper>
+    </MudContainer>
+}
+@code {
+    [Parameter] public int Id { get; set; }
+    private Barbershop? Barbershop { get; set; }
+
+    private List<Job>? Service { get; set; } = new List<Job>();
+
+    private int oh, om, ch, cm;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Barbershop = await Context.Barbershops
+            .Include(bs => bs.Barbers)
+                .ThenInclude(b => b.Account)
+            .Include(bs => bs.Images)
+            .Where(bs => bs.Id == Id)
+            .FirstOrDefaultAsync();
+
+        if (Barbershop is null)
+        {
+            Navigation.NavigateTo("/");
+        }
+
+        oh = Barbershop.OpeningTime.Hours;
+        om = Barbershop.OpeningTime.Minutes;
+
+        ch = Barbershop.ClosingTime.Hours;
+        cm = Barbershop.ClosingTime.Minutes;
+
+        var jobIdSet = new HashSet<int>();
+        foreach (var b in Barbershop.Barbers)
+        {
+            jobIdSet = await Context.BarberJobs.Where(bj => b.Id == bj.BarberId).Select(bj => bj.JobId).ToHashSetAsync();
+
+            foreach (var id in jobIdSet)
+            {
+                Service.Add(await Context.Jobs.Where(j => j.Id == id).FirstOrDefaultAsync());
+            }
+        }
+    }
+
+    private async Task AddServiceToCart(Job j)
+    {
+        await CartService.AddToCart(j);
+    }
+}

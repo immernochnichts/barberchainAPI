@@ -15,6 +15,8 @@ namespace barberchainAPI.Data
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderJob> OrderJobs { get; set; }
         public DbSet<Review> Reviews { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
+        public DbSet<AccountNotification> AccountNotifications { get; set; }
         public DbSet<BarberJob> BarberJobs { get; set; }
         public DbSet<BarberScheduleDay> BarberScheduleDays { get; set; }
         public DbSet<ImageBarber> BarberImages { get; set; }
@@ -34,6 +36,11 @@ namespace barberchainAPI.Data
             modelBuilder.Entity<BarberScheduleDay>().ToTable("barber_schedule_day");
             modelBuilder.Entity<BarberJob>().ToTable("barber_job");
             modelBuilder.Entity<Job>().ToTable("job");
+            modelBuilder.Entity<Barbershop>().ToTable("bshop");
+            modelBuilder.Entity<ImageBshop>().ToTable("images_bshop");
+            modelBuilder.Entity<Notification>().ToTable("notification");
+            modelBuilder.Entity<AccountNotification>().ToTable("account_notification");
+            modelBuilder.Entity<Review>().ToTable("review");
 
             // Composite key for BarberJob
             modelBuilder.Entity<BarberJob>()
@@ -42,6 +49,10 @@ namespace barberchainAPI.Data
             // Composite key for OrderJob
             modelBuilder.Entity<OrderJob>()
                 .HasKey(oj => new { oj.OrderId, oj.JobId });
+
+            // Composite key for AccountNotification
+            modelBuilder.Entity<AccountNotification>()
+                .HasKey(an => new { an.AccountId, an.NotificationId });
 
             // Unique constraint for BarberScheduleDay (BarberId + Date)
             modelBuilder.Entity<BarberScheduleDay>()

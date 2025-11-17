@@ -1,5 +1,5 @@
 ﻿@namespace barberchainAPI.Components
-
+@using Microsoft.AspNetCore.Components.Authorization
 <!DOCTYPE html>
 <html lang="en">
 
@@ -16,7 +16,9 @@
 </head>
 
 <body>
-    <Routes />
+    <CascadingAuthenticationState>
+        <Routes />
+    </CascadingAuthenticationState>
     <script src="_framework/blazor.server.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js?v=@(MudBlazor.Metadata.Version)"></script>
 </body>

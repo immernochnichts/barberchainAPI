@@ -1,5 +1,6 @@
 using barberchainAPI.Components;
 using barberchainAPI.Data;
+using barberchainAPI.Functional;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server;
@@ -40,8 +41,13 @@ namespace barberchainAPI
                     options.ExpireTimeSpan = TimeSpan.FromDays(7);
                 });
 
-            builder.Services.AddScoped<AuthenticationStateProvider, ServerAuthenticationStateProvider>();
-            
+            builder.Services.AddAuthorization();
+            builder.Services.AddCascadingAuthenticationState();
+
+            //builder.Services.AddScoped<AuthenticationStateProvider, ServerAuthenticationStateProvider>();
+            builder.Services.AddScoped<LocalStorageService>();
+            builder.Services.AddScoped<CartService>();
+
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.

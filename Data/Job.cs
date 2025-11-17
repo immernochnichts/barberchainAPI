@@ -5,6 +5,12 @@ namespace barberchainAPI.Data
 {
     public class Job
     {
+        public override bool Equals(object obj)
+        => obj is Job j && j.Id == Id;
+
+        public override int GetHashCode()
+            => Id.GetHashCode();
+
         [Key]
         [Column("id")]
         public int Id { get; set; }

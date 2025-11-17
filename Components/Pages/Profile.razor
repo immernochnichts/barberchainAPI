@@ -1,0 +1,73 @@
+﻿@inherits AccountPage
+
+@if (account is null)
+{
+    <MudText>
+        Loading...
+    </MudText>
+}
+else
+{
+    <MudPaper Elevation="3" Class="p-4 rounded-lg">
+
+        <MudContainer Style="display:flex; padding-top:1rem;">
+            <MudImage Src="@GetImageSrc(account.ProfilePic)" Class="rounded-lg" Elevation="25" ObjectFit="ObjectFit.Cover" Style="max-width:50%;" />
+            <MudContainer Style="display:flex; flex-direction:column; align-items:flex-start;">
+                <MudText Typo="Typo.h5" Align="Align.Center">@account.Lastname @account.Restname</MudText>
+                <MudText Typo="Typo.h6" Align="Align.Center">обо мне:</MudText>
+                <MudText Typo="Typo.body1" Align="Align.Center" Class="text-secondary">
+                    @account.Bio
+                </MudText>
+                @if (account.Role == AccountRole.Barber)
+                {
+                    <MudText Typo="Typo.h6" Align="Align.Center">что я умею:</MudText>
+                    <MudText Typo="Typo.body1" Align="Align.Center" Class="text-secondary">
+                        <MudList T="string">
+                            @foreach (var job in jobs)
+                            {
+                                <MudListItem Text=@job.Job.Name SecondaryText=@(job.Price is null ? job.Job.DefaultPrice.ToString() : job.Price.ToString()) />
+                            }
+                        </MudList>
+                    </MudText>
+                }
+            </MudContainer>
+        </MudContainer>
+
+        @if (account.Role == AccountRole.Barber)
+        {
+            <MudDivider Class="my-4" />
+
+            <!-- Auxiliary Pictures Grid -->
+            <MudText Typo="Typo.h6" Class="mb-2">Gallery</MudText>
+            @if (barber.Images != null && barber.Images.Any())
+            {
+                @foreach (var img in barber.Images)
+                {
+                    <MudGrid GutterSize="2">
+                        <MudItem xs="6" sm="4" md="3">
+                            <MudPaper Elevation="1" Class="p-1 rounded">
+                                <MudImage Src="@AccountPage.GetImageSrc(img.ImgFile)" Alt="Auxiliary image" Style="width:100%;height:auto;" />
+                            </MudPaper>
+                        </MudItem>
+                    </MudGrid>
+                }
+            }
+            else
+            {
+                <MudText Align="Align.Left">No images available</MudText>
+            }
+
+            <MudDivider Class="my-4" />
+
+            <!-- Calendar Section -->
+            <MudText Typo="Typo.h6" Class="mb-2">Schedule</MudText>
+            <MudDatePicker PickerVariant="PickerVariant.Static" Orientation="Orientation.Landscape" Date="@(DateTime.Today)" @bind-value="_selectedDate" />
+
+            <MudDivider Class="my-4" />
+
+            <MudButton @onclick="OpenDialogAsync" Variant="Variant.Filled" Color="Color.Primary">
+                Book
+            </MudButton>
+        }
+    </MudPaper>
+}

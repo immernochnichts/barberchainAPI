@@ -51,7 +51,7 @@ namespace barberchainAPI.Data
         public string? Bio { get; set; }
 
         [Column("birth_date")]
-        public DateTime? BirthDate { get; set; }
+        public DateOnly? BirthDate { get; set; }
 
         // Navigation
         public ICollection<Review> Reviews { get; set; }

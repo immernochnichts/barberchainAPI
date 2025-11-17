@@ -1,5 +1,4 @@
-﻿@rendermode InteractiveServer
-@using MudBlazor;
+﻿@using MudBlazor;
 @using System.Collections;
 
 <style>
@@ -70,7 +69,7 @@
     private IMudDialogInstance MudDialog { get; set; }
 
     [Parameter]
-    public BitArray AtuPattern { get; set; }
+    public BitArray? AtuPattern { get; set; }
 
     public bool vacantEncountered { get; set; } = false;
 

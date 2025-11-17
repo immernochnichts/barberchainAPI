@@ -1,0 +1,44 @@
+﻿@inherits AccountPage
+@inject BarberchainDbContext Context
+
+@if (NotificationList != null && NotificationList.Count > 0)
+{
+    <MudPaper Elevation="3" Class="p-4 rounded-lg">
+        <MudContainer Style="display:flex; padding-top:1rem;">
+            <MudContainer Style="display:flex; flex-direction:column; align-items:flex-start;">
+                @foreach (var n in NotificationList)
+                {
+                    <MudPaper>
+                        <MudText>@n.Type</MudText>
+                        <MudText>@n.Content</MudText>
+                        <MudText>@n.CreatedAt</MudText>
+                    </MudPaper>
+                }
+            </MudContainer>
+        </MudContainer>
+    </MudPaper>
+}
+else
+{
+    <MudPaper Elevation="3" Class="p-4 rounded-lg">
+        <MudText>
+            No notifications found for your account
+        </MudText>
+    </MudPaper>
+}
+
+@code {
+    private List<Notification> NotificationList { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // var NotificationIdList = await Context.AccountNotifications.Where(an => an.AccountId == id).Select(an => an.NotificationId).ToListAsync();
+
+        // foreach (var ni in NotificationIdList)
+        // {
+        //     NotificationList.Add(await Context.Notifications.FirstOrDefaultAsync(n => n.Id == ni));
+        // }
+
+        NotificationList = await Context.AccountNotifications.Where(an => an.AccountId == id).Select(an => an.Notification).ToListAsync();
+    }
+}
