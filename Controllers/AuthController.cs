@@ -22,17 +22,24 @@ namespace barberchainAPI.Controllers
         [Route("login")]
         public async Task<IActionResult> Login([FromForm] string email, [FromForm] string password)
         {
+            Console.WriteLine("=== Auth controller login endpoint entered ===");
+
             var acc = _db.Accounts.FirstOrDefault(a => a.Email == email);
             if (acc == null)
             {
                 return BadRequest("Invalid login or email");
             }
 
+            Console.WriteLine($"Logging into {acc.Email}");
+
             var hashString = System.Text.Encoding.UTF8.GetString(acc.Hash);
             if (!BCrypt.Net.BCrypt.Verify(password, hashString))
             {
                 return BadRequest("Invalid login or email");
             }
+
+            Console.WriteLine("Email and password are correct");
+            Console.WriteLine("Creating claims");
 
             var claims = new List<Claim>
             {
@@ -41,8 +48,17 @@ namespace barberchainAPI.Controllers
                 new Claim(ClaimTypes.Role, acc.Role.ToString())
             };
 
+            Console.WriteLine("=== CLAIMS ===");
+            foreach (var c in claims)
+                Console.WriteLine($"{c.Type} = {c.Value}");
+
             var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+
+            Console.WriteLine($"Created identity {identity.Name}");
+
             var principal = new ClaimsPrincipal(identity);
+
+            Console.WriteLine("Created claims principal");
 
             await HttpContext.SignInAsync(
                 CookieAuthenticationDefaults.AuthenticationScheme,
@@ -53,6 +69,8 @@ namespace barberchainAPI.Controllers
                     ExpiresUtc = DateTimeOffset.UtcNow.AddDays(7)
                 }
             );
+
+            Console.WriteLine("Signed in");
 
             return Ok();
         }

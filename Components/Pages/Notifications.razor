@@ -1,5 +1,4 @@
-﻿@inherits AccountPage
-@inject BarberchainDbContext Context
+﻿@inject BarberchainDbContext Context
 
 @if (NotificationList != null && NotificationList.Count > 0)
 {
@@ -28,17 +27,13 @@ else
 }
 
 @code {
+    [Parameter]
+    public int id { get; set; }
+
     private List<Notification> NotificationList { get; set; } = new();
 
     protected override async Task OnInitializedAsync()
     {
-        // var NotificationIdList = await Context.AccountNotifications.Where(an => an.AccountId == id).Select(an => an.NotificationId).ToListAsync();
-
-        // foreach (var ni in NotificationIdList)
-        // {
-        //     NotificationList.Add(await Context.Notifications.FirstOrDefaultAsync(n => n.Id == ni));
-        // }
-
         NotificationList = await Context.AccountNotifications.Where(an => an.AccountId == id).Select(an => an.Notification).ToListAsync();
     }
 }

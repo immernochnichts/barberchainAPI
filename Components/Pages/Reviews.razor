@@ -1,5 +1,4 @@
-﻿@inherits AccountPage
-@inject BarberchainDbContext Context
+﻿@inject BarberchainDbContext Context
 
 @if (ReviewList != null && ReviewList.Count > 0)
 {
@@ -28,6 +27,9 @@ else
 }
 
 @code {
+    [Parameter]
+    public int id { get; set; }
+
     private List<Review> ReviewList { get; set; } = new();
 
     protected override async Task OnInitializedAsync()

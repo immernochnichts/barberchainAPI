@@ -1,11 +1,6 @@
-using barberchainAPI.Components;
 using barberchainAPI.Data;
 using barberchainAPI.Functional;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.AspNetCore.Components.Server;
-using Microsoft.AspNetCore.Components.Web;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
 
@@ -22,8 +17,6 @@ namespace barberchainAPI
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
 
-            builder.Services.AddServerSideBlazor();
-
             builder.Services.AddDbContext<BarberchainDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"),
                 o => o.MapEnum<AccountRole>("account_role")));
             builder.Services.AddMudServices();
@@ -34,17 +27,14 @@ namespace barberchainAPI
             });
 
             builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-                .AddCookie(options =>
+                .AddCookie(x =>
                 {
-                    options.LoginPath = "/auth";     // redirect for unauthorized users
-                    options.AccessDeniedPath = "/forbidden";
-                    options.ExpireTimeSpan = TimeSpan.FromDays(7);
+                    x.Cookie.Name = "authCookie";
+                    x.LoginPath = "/auth";
                 });
-
             builder.Services.AddAuthorization();
             builder.Services.AddCascadingAuthenticationState();
 
-            //builder.Services.AddScoped<AuthenticationStateProvider, ServerAuthenticationStateProvider>();
             builder.Services.AddScoped<LocalStorageService>();
             builder.Services.AddScoped<CartService>();
 
@@ -61,10 +51,12 @@ namespace barberchainAPI
             app.UseHttpsRedirection();
 
             app.UseStaticFiles();
-            app.UseAntiforgery();
+            app.UseRouting();
 
             app.UseAuthentication();
             app.UseAuthorization();
+
+            app.UseAntiforgery();
 
             app.MapControllers();
 

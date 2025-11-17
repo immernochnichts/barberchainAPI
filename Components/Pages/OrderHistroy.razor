@@ -1,5 +1,5 @@
-﻿@inherits AccountPage
-@inject BarberchainDbContext Context
+﻿@inject BarberchainDbContext Context
+@using MudBlazor
 
 @if (OrderList != null && OrderList.Count > 0)
 {
@@ -30,6 +30,9 @@ else
 }
 
 @code {
+    [Parameter]
+    public int id { get; set; }
+
     private List<Order> OrderList { get; set; } = new();
 
     protected override async Task OnInitializedAsync()
