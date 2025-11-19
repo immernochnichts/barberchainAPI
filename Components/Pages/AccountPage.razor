@@ -3,8 +3,10 @@
 @using System.IO
 @using Microsoft.AspNetCore.Components.Authorization
 @using MudBlazor
-@using System.Collections;
+@using System.Collections
 @using System.Security.Claims
+@using barberchainAPI.Functional
+@inject CartService CartService
 <MudDialogProvider />
 
 @if (account is null)
@@ -22,6 +24,7 @@ else
                 <MudButton @onclick="() => currentComponent = AccountComponent.Reviews">Мои отзывы</MudButton>
                 <MudButton @onclick="() => currentComponent = AccountComponent.Notifications">Уведомления</MudButton>
                 <MudButton @onclick="() => currentComponent = AccountComponent.OrderHistory">История заказов</MudButton>
+                <MudButton @onclick="() => currentComponent = AccountComponent.Cart">Корзина</MudButton>
             </MudButtonGroup>
         }
         
@@ -29,7 +32,7 @@ else
         {
             case AccountComponent.Profile:
             {
-                <Profile id="@id" user="@user" account="@account"></Profile>
+                <Profile id="@id" user="@user" account="@account" barber="@barber" jobs="@jobs"></Profile>
                 break;
             }
             case AccountComponent.Reviews:
@@ -47,6 +50,11 @@ else
                 <OrderHistroy id="@id"></OrderHistroy>
                 break;
             }
+            case AccountComponent.Cart:
+            {
+                <CartPage></CartPage>
+                break;
+            }
         }
 
     </MudContainer>
@@ -59,7 +67,8 @@ else
         Profile,
         Reviews,
         Notifications,
-        OrderHistory
+        OrderHistory,
+        Cart
     }
 
     [Inject]
@@ -80,6 +89,11 @@ else
 
     protected Account? account;
 
+    //Barber variables
+    private List<BarberJob> jobs;
+    private Barber? barber;
+    private BitArray? AtuPattern;
+
     protected override async Task OnInitializedAsync()
     {
         account = await Context.Accounts.FirstOrDefaultAsync(a => a.Id == id);
@@ -98,6 +112,19 @@ else
             {
                 IsOwner = userId == id;
             }
+        }
+
+        if (account is not null && account.Role == AccountRole.Barber)
+        {
+            barber = await Context.Barbers
+                .Include(b => b.Account)
+                .Include(b => b.Images)
+                .FirstOrDefaultAsync(b => b.AccountId == id);
+
+            jobs = await Context.BarberJobs
+                .Include(x => x.Job)
+                .Where(x => x.BarberId == barber.Id)
+                .ToListAsync();
         }
     }
 

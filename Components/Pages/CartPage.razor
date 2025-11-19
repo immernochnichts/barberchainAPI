@@ -1,0 +1,54 @@
+﻿@using barberchainAPI.Functional
+@inject BarberchainDbContext Context
+@inject CartService CartService
+
+<MudPaper Elevation="3" Class="p-4 rounded-lg">
+    @if (cart != null && cart.JobSet.Count > 0)
+    {
+    <MudContainer Style="padding-top:1rem;">
+        <MudText>Нажмите на услугу, чтобы убрать её из корзины</MudText>
+        <MudList T="string">
+            @foreach (var job in cart.JobSet)
+            {
+                <MudContainer Class="d-flex" Style="align-items:center">
+                    <MudListItem Text=@job.Name />
+                    <MudButton @onclick="async () => { await OnServiceClicked(job); }" Disabled="false" Style=@($"background:{(cart.JobSet.Contains(job) ? "gray" : "black")}; height:min-content;")>@(cart.JobSet.Contains(job) ? "Добавлено" : "")</MudButton>
+                </MudContainer>
+            }
+        </MudList>
+    </MudContainer>
+    }
+    else
+    {
+        <MudText>Корзина пуста</MudText>
+    }
+</MudPaper>
+
+@code {
+    private Cart? cart;
+
+    protected override async Task OnAfterRenderAsync(bool firstTime)
+    {
+        if (firstTime)
+        {
+            cart = await CartService.GetCart();
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnServiceClicked(Job j)
+    {
+        if (cart.JobSet.Contains(j))
+        {
+            await CartService.RemoveItem(j.Id);
+        }
+        else
+        {
+            await CartService.AddToCart(j);
+        }
+
+        cart = await CartService.GetCart(); // update the cart
+
+        StateHasChanged();
+    }
+}

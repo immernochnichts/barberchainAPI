@@ -38,6 +38,8 @@
 <MudDialog>
     <TitleContent>
         Выберите временные промежутки
+        <br />
+        @SelectedDate.Value.Day.@SelectedDate.Value.Month
     </TitleContent>
     <DialogContent>
         <div class="timeline-container">
@@ -70,6 +72,9 @@
 
     [Parameter]
     public BitArray? AtuPattern { get; set; }
+
+    [Parameter]
+    public DateTime? SelectedDate { get; set; }
 
     public bool vacantEncountered { get; set; } = false;
 

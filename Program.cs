@@ -8,6 +8,15 @@ namespace barberchainAPI
 {
     public class Program
     {
+        /*
+        TODO:
+        1. Add cart page to profile
+        2. Add interactive services on barber and barbershop's pages that can be added to the cart
+        3. Make the services draggable so they can be filled into barber's schedule
+        4. Add fake payment page
+        5. Finish order history page
+        */
+
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);

@@ -1,9 +1,11 @@
 ﻿@namespace barberchainAPI.Components.Pages
-@inject IDialogService DialogService
-@inject BarberchainDbContext Context
 @using MudBlazor
 @using System.Collections
 @using System.Security.Claims
+@using barberchainAPI.Functional;
+@inject IDialogService DialogService
+@inject BarberchainDbContext Context
+@inject CartService CartService
 
 @if (account is null)
 {
@@ -27,12 +29,18 @@ else
                 {
                     <MudText Typo="Typo.h6" Align="Align.Center">что я умею:</MudText>
                     <MudText Typo="Typo.body1" Align="Align.Center" Class="text-secondary">
-                        <MudList T="string">
-                            @foreach (var job in jobs)
-                            {
-                                <MudListItem Text=@job.Job.Name SecondaryText=@(job.Price is null ? job.Job.DefaultPrice.ToString() : job.Price.ToString()) />
-                            }
-                        </MudList>
+                        @if (jobs is not null && cart != null)
+                        {
+                            <MudList T="string">
+                                @foreach (var job in jobs)
+                                {
+                                    <MudContainer Class="d-flex" Style="align-items:center">
+                                        <MudListItem Text=@job.Job.Name SecondaryText=@(job.Price is null ? job.Job.DefaultPrice.ToString() : job.Price.ToString()) />
+                                        <MudButton @onclick="async () => { await OnServiceClicked(job.Job); }" Disabled="false" Style=@($"background:{(cart.JobSet.Contains(job.Job) ? "gray" : "black")}; height:min-content;")>@(cart.JobSet.Contains(job.Job) ? "Добавлено" : "")</MudButton>
+                                    </MudContainer>
+                                }
+                            </MudList>                        
+                        }
                     </MudText>
                 }
             </MudContainer>
@@ -44,7 +52,7 @@ else
 
             <!-- Auxiliary Pictures Grid -->
             <MudText Typo="Typo.h6" Class="mb-2">Gallery</MudText>
-            @if (barber.Images != null && barber.Images.Any())
+            @if (barber?.Images != null && barber.Images.Any())
             {
                 @foreach (var img in barber.Images)
                 {
@@ -87,42 +95,23 @@ else
     [Parameter]
     public ClaimsPrincipal? user { get; set; }
 
+    private Cart? cart;
+
     private bool _loaded = false;
 
     //Barber variables
-    protected List<BarberJob> jobs;
-    protected Barber? barber;
+    [Parameter]
+    public List<BarberJob> jobs { get; set; }
+
+    [Parameter]
+    public Barber? barber { get; set; }
+
     public BitArray? AtuPattern { get; set; }
 
     protected DateTime? _selectedDate = DateTime.Today;
 
-    protected override async Task OnParametersSetAsync()
-    {
-        // IF account is now available (interactive phase)
-        if (account != null && !_loaded)
-        {
-            _loaded = true;
-
-            if (account.Role == AccountRole.Barber)
-            {
-                barber = await Context.Barbers
-                    .Include(b => b.Account)
-                    .Include(b => b.Images)
-                    .FirstOrDefaultAsync(b => b.AccountId == id);
-
-                jobs = await Context.BarberJobs
-                    .Include(x => x.Job)
-                    .Where(x => x.BarberId == id)
-                    .ToListAsync();
-
-                AtuPattern = await GetAvailabilityForDay(id, _selectedDate);
-            }
-        }
-    }
-
     public async Task<BitArray> GetAvailabilityForDay(int barberId, DateTime? day)
     {
-
         var availability = await Context.BarberScheduleDays
             .Where(a => a.BarberId == barberId && a.Date == day.Value.ToUniversalTime())
             .Select(a => a.AtuPattern)
@@ -136,11 +125,37 @@ else
         return availability;
     }
 
-    protected Task OpenDialogAsync()
+    protected override async Task OnAfterRenderAsync(bool firstTime)
     {
-        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.ExtraExtraLarge, FullWidth = true };
-        var params_ = new DialogParameters<BarberPageDialog> { { x => x.AtuPattern, AtuPattern } };
+        if (firstTime)
+        {
+            cart = await CartService.GetCart();
+            StateHasChanged();
+        }
+    }
 
-        return DialogService.ShowAsync<BarberPageDialog>("Book time", params_, options);
+    protected async Task OpenDialogAsync()
+    {
+        AtuPattern = await GetAvailabilityForDay(barber.Id, _selectedDate);
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.ExtraExtraLarge, FullWidth = true };
+        var params_ = new DialogParameters<BarberPageDialog> { { x => x.AtuPattern, AtuPattern }, { y => y.SelectedDate, _selectedDate} };
+
+        await DialogService.ShowAsync<BarberPageDialog>("Book time", params_, options);
+    }
+
+    private async Task OnServiceClicked(Job j)
+    {
+        if (cart.JobSet.Contains(j))
+        {
+            await CartService.RemoveItem(j.Id);
+        }
+        else
+        {
+            await CartService.AddToCart(j);
+        }
+
+        cart = await CartService.GetCart(); // update the cart
+
+        StateHasChanged();
     }
 }

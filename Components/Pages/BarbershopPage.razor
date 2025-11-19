@@ -1,4 +1,5 @@
 ﻿@page "/barbershop/{Id:int}"
+@rendermode InteractiveServer
 @using barberchainAPI.Functional
 @inject NavigationManager Navigation
 @inject BarberchainDbContext Context
@@ -40,14 +41,16 @@ else
 
                 <MudDivider Class="my-4" />
 
-                <MudText Typo="Typo.h5" Class="mb-2 d-flex">Service</MudText>
+                <MudText Typo="Typo.h5" Class="mb-2 d-flex">Услуги</MudText>
                 <MudList T="string" Class="d-flex flex-wrap">
                     @foreach (var job in Service)
                     {
                         <MudContainer Class="d-flex mb-4" Style="align-items:center;">
-                            <MudListItem Style="width:max-content;" Text=@job.Name SecondaryText="" />
-                            <MudButton @onclick="async () => await CartService.AddToCart(job)" Variant="Variant.Filled" Style="background-color:black; height:fit-content;"></MudButton>
-                            <!--<MudContainer Style="width:80px; background:black;" Class="rounded"></MudContainer>-->
+                            <MudListItem Text=@job.Name />
+                            @if (cart != null)
+                            {
+                                <MudButton @onclick="async () => { await OnServiceClicked(job); }" Style=@($"background:{(cart.JobSet.Contains(job) ? "gray" : "black")}; height:min-content;")>@(cart.JobSet.Contains(job) ? "Добавлено" : "")</MudButton>
+                            }
                         </MudContainer>
                     }
                 </MudList>
@@ -58,14 +61,17 @@ else
                 <MudGrid>
                     @foreach (var barber in Barbershop.Barbers)
                     {
-                        <MudItem xs="12" sm="6" md="4">
-                            <MudCard>
-                                <MudCardContent>
-                                    <MudText Typo="Typo.subtitle1">@barber.Account.Lastname @barber.Account.Restname</MudText>
-                                    <MudImage Src="@AccountPage.GetImageSrc(barber.Account.ProfilePic)" Alt="Barber profile pic" Class="rounded" ObjectFit="ObjectFit.Cover" Style="width:100%;height:auto;" />
-                                </MudCardContent>
-                            </MudCard>
-                        </MudItem>
+                        @if (cart != null && barber.BarberJobs.Select(bj => bj.Job).ToHashSet().IsSupersetOf(cart.JobSet))
+                        {
+                            <MudItem xs="12" sm="6" md="4">
+                                <MudCard>
+                                    <MudCardContent>
+                                        <MudText Typo="Typo.subtitle1">@barber.Account.Lastname @barber.Account.Restname</MudText>
+                                        <MudImage Src="@AccountPage.GetImageSrc(barber.Account.ProfilePic)" Alt="Barber profile pic" Class="rounded" ObjectFit="ObjectFit.Cover" Style="width:100%;height:auto;" />
+                                    </MudCardContent>
+                                </MudCard>
+                            </MudItem>
+                        }
                     }
                 </MudGrid>
 
@@ -96,38 +102,73 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        Barbershop = await Context.Barbershops
-            .Include(bs => bs.Barbers)
-                .ThenInclude(b => b.Account)
-            .Include(bs => bs.Images)
-            .Where(bs => bs.Id == Id)
-            .FirstOrDefaultAsync();
 
-        if (Barbershop is null)
-        {
-            Navigation.NavigateTo("/");
-        }
+        try
+        { 
+            Barbershop = await Context.Barbershops
+             .Include(bs => bs.Barbers)
+                 .ThenInclude(b => b.Account)
+             .Include(bs => bs.Barbers)
+                 .ThenInclude(b => b.BarberJobs)
+                     .ThenInclude(bj => bj.Job)
+             .Include(bs => bs.Images)
+             .Where(bs => bs.Id == Id)
+             .FirstOrDefaultAsync();
 
-        oh = Barbershop.OpeningTime.Hours;
-        om = Barbershop.OpeningTime.Minutes;
-
-        ch = Barbershop.ClosingTime.Hours;
-        cm = Barbershop.ClosingTime.Minutes;
-
-        var jobIdSet = new HashSet<int>();
-        foreach (var b in Barbershop.Barbers)
-        {
-            jobIdSet = await Context.BarberJobs.Where(bj => b.Id == bj.BarberId).Select(bj => bj.JobId).ToHashSetAsync();
-
-            foreach (var id in jobIdSet)
+            if (Barbershop is null)
             {
-                Service.Add(await Context.Jobs.Where(j => j.Id == id).FirstOrDefaultAsync());
+                Navigation.NavigateTo("/");
             }
+
+            oh = Barbershop.OpeningTime.Hours;
+            om = Barbershop.OpeningTime.Minutes;
+
+            ch = Barbershop.ClosingTime.Hours;
+            cm = Barbershop.ClosingTime.Minutes;
+
+            var jobIdSet = new HashSet<int>();
+            foreach (var b in Barbershop.Barbers)
+            {
+                jobIdSet = await Context.BarberJobs.Where(bj => b.Id == bj.BarberId).Select(bj => bj.JobId).ToHashSetAsync();
+
+                foreach (var id in jobIdSet)
+                {
+                    Service.Add(await Context.Jobs.Where(j => j.Id == id).FirstOrDefaultAsync());
+                }
+            }
+        }
+        catch(Exception e)
+        {
+            Console.WriteLine(e.Message);
         }
     }
 
-    private async Task AddServiceToCart(Job j)
+    private Cart? cart;
+
+    protected override async Task OnAfterRenderAsync(bool firstTime)
     {
-        await CartService.AddToCart(j);
+        if (firstTime)
+        {
+            Console.WriteLine("Loading cart");
+            cart = await CartService.GetCart();
+            Console.WriteLine("Cart loaded: " + cart.ToString());
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnServiceClicked(Job j)
+    {
+        if (cart.JobSet.Contains(j))
+        {
+            await CartService.RemoveItem(j.Id);
+        }
+        else
+        {
+            await CartService.AddToCart(j);
+        }
+
+        cart = await CartService.GetCart(); // update the cart
+
+        StateHasChanged();
     }
 }

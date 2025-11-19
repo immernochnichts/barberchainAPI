@@ -41,6 +41,7 @@ namespace barberchainAPI.Data
             modelBuilder.Entity<Notification>().ToTable("notification");
             modelBuilder.Entity<AccountNotification>().ToTable("account_notification");
             modelBuilder.Entity<Review>().ToTable("review");
+            modelBuilder.Entity<Order>().ToTable("order_");
 
             // Composite key for BarberJob
             modelBuilder.Entity<BarberJob>()

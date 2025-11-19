@@ -24,27 +24,34 @@ namespace barberchainAPI.Data
     public class Order
     {
         [Key]
+        [Column("id")]
         public int Id { get; set; }
 
+        [Column("fk_account")]
         public int? AccountId { get; set; }
         [ForeignKey(nameof(AccountId))]
         public Account Account { get; set; }
 
         [Required]
+        [Column("fk_barber")]
         public int BarberId { get; set; }
         [ForeignKey(nameof(BarberId))]
         public Barber Barber { get; set; }
 
         [Required]
+        [Column("order_time")]
         public DateTime OrderTime { get; set; }
 
         [Required]
+        [Column("status")]
         public OrderStatus Status { get; set; } = OrderStatus.Pending;
 
         [Required]
+        [Column("appointed_time")]
         public DateTime AppointedTime { get; set; }
 
         [Required]
+        [Column("method")]
         public OrderMethod Method { get; set; } = OrderMethod.Online;
 
         public ICollection<OrderJob> OrderJobs { get; set; }
