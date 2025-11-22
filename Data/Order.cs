@@ -54,6 +54,10 @@ namespace barberchainAPI.Data
         [Column("method")]
         public OrderMethod Method { get; set; } = OrderMethod.Online;
 
+        [Required]
+        [Column("is_paid")]
+        public bool IsPaid { get; set; } = false;
+
         public ICollection<OrderJob> OrderJobs { get; set; }
     }
 }

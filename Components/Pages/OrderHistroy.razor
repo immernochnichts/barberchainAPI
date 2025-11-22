@@ -8,13 +8,14 @@
             <MudContainer Style="display:flex; flex-direction:column; align-items:flex-start;">
                 @foreach (var o in OrderList)
                 {
-                    <MudPaper>
+                    <MudDivider></MudDivider>
+                    <MudStack>
                         <MudText>@o.AppointedTime</MudText>
                         <MudText>@o.Status</MudText>
                         <MudText>@o.OrderTime</MudText>
                         <MudText>@o.Method</MudText>
-                        <MudText>@o.OrderJobs.Select(oj => oj.Job.Name)</MudText>
-                    </MudPaper>
+                        <MudText>@string.Join(", ", o.OrderJobs.Select(oj => oj.Job).Where(j => j != null).Select(j => j.Name))</MudText>
+                    </MudStack>
                 }
             </MudContainer>
         </MudContainer>
@@ -33,10 +34,12 @@ else
     [Parameter]
     public int id { get; set; }
 
-    private List<Order> OrderList { get; set; } = new();
+    private List<Order> OrderList { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
-        OrderList = await Context.Orders.Where(o => o.AccountId == id).ToListAsync();
+        OrderList = await Context.Orders
+            .Include(o => o.OrderJobs)
+            .Where(o => o.AccountId == id).ToListAsync();
     }
 }

@@ -10,8 +10,8 @@ namespace barberchainAPI
     {
         /*
         TODO:
-        1. Add cart page to profile
-        2. Add interactive services on barber and barbershop's pages that can be added to the cart
+        1. Add cart page to profile DONE
+        2. Add interactive services on barber and barbershop's pages that can be added to the cart DONE
         3. Make the services draggable so they can be filled into barber's schedule
         4. Add fake payment page
         5. Finish order history page
@@ -26,8 +26,20 @@ namespace barberchainAPI
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
 
+            //AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
             builder.Services.AddDbContext<BarberchainDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"),
-                o => o.MapEnum<AccountRole>("account_role")));
+                o =>
+                {
+                    o.MapEnum<AccountRole>("account_role");
+                    o.MapEnum<OrderMethod>("order_method");
+                    o.MapEnum<OrderStatus>("order_status");
+                    o.MapEnum<ComplaintStatus>("complaint_status");
+                    o.MapEnum<ScheduleRequestStatus>("schedule_request_status");
+                    o.MapEnum<ActionType>("action_type");
+                }
+            ));
+
             builder.Services.AddMudServices();
             builder.Services.AddControllers();
             builder.Services.AddHttpClient("server", client =>

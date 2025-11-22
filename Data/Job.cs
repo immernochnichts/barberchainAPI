@@ -30,5 +30,8 @@ namespace barberchainAPI.Data
         [Required]
         [Column("default_price")]
         public double DefaultPrice { get; set; }
+
+        [Column("color_css")]
+        public string? ColorCSS { get; set; }
     }
 }

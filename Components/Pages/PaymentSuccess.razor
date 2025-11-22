@@ -1,0 +1,61 @@
+﻿@using MudBlazor
+@inject NavigationManager Navigation
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6 text-center">
+
+    <MudPaper Elevation="4" Class="pa-6">
+
+        <!-- Success Icon -->
+        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Large" Class="mb-4" />
+
+        <!-- Success Text -->
+        <MudText Typo="Typo.h4" Class="mb-2">Payment Successful!</MudText>
+        <MudText Typo="Typo.subtitle1" Class="mb-4">Your order <b>#@orderid</b> has been successfully processed.</MudText>
+
+        <!-- Optional Details -->
+        <MudStack Spacing="1" AlignItems="AlignItems.Center" Class="mb-4">
+            <MudText>Amount Paid: <b>$25.00</b></MudText>
+            <MudText>Payment Method: <b>Credit Card</b></MudText>
+            <MudText>Appointment: <b>@AppointmentTime.ToString("f")</b></MudText>
+        </MudStack>
+
+        <!-- Buttons -->
+        <MudStack Direction="Row" Spacing="2" Justify="Justify.Center">
+            @if (Account != null)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GoToOrders">
+                    View My Orders
+                </MudButton>
+            }
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="GoHome">
+                Go Home
+            </MudButton>
+        </MudStack>
+
+    </MudPaper>
+
+</MudContainer>
+
+@code {
+    [Parameter]
+    public int orderid { get; set; }
+
+    [Parameter]
+    public Account Account { get; set; }
+
+    // Sample appointment time (replace with actual data fetch)
+    private DateTime AppointmentTime { get; set; } = DateTime.Now.AddDays(1);
+
+    private void GoToOrders()
+    {
+        
+        Navigation.NavigateTo($"/account/{Account.Id}?CurrentComponent=AccountComponent.OrderHistory");
+        Navigation.Refresh();
+    }
+
+    private void GoHome()
+    {
+        Navigation.NavigateTo("/");
+        Navigation.Refresh();
+    }
+}

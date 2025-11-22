@@ -42,6 +42,7 @@ namespace barberchainAPI.Data
             modelBuilder.Entity<AccountNotification>().ToTable("account_notification");
             modelBuilder.Entity<Review>().ToTable("review");
             modelBuilder.Entity<Order>().ToTable("order_");
+            modelBuilder.Entity<OrderJob>().ToTable("order_job");
 
             // Composite key for BarberJob
             modelBuilder.Entity<BarberJob>()
@@ -60,24 +61,41 @@ namespace barberchainAPI.Data
                 .HasIndex(bsd => new { bsd.BarberId, bsd.Date })
                 .IsUnique();
 
-            // Enum conversions (Postgres enums → C# enums)
-            modelBuilder.Entity<Order>()
-                .Property(o => o.Method)
-                .HasConversion<string>();
+            modelBuilder.Entity<Order>(entity =>
+            {
+                entity.Property(o => o.Status)
+                      .HasColumnType("order_status");
+
+                entity.Property(o => o.Method)
+                      .HasColumnType("order_method");
+
+                entity.Property(o => o.OrderTime)
+                  .HasColumnType("timestamp with time zone")
+                  .HasConversion(
+                      v => v.ToUniversalTime(),
+                      v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
+                  );
+
+                entity.Property(o => o.AppointedTime)
+                    .HasColumnType("timestamp with time zone")
+                    .HasConversion(
+                        v => v.ToUniversalTime(),
+                        v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
+                    );
+            });
 
             modelBuilder.Entity<Complaint>()
                 .Property(c => c.Status)
-                .HasConversion<string>();
+                .HasColumnType("complaint_status");
 
             modelBuilder.Entity<ScheduleRequest>()
                 .Property(sr => sr.Status)
-                .HasConversion<string>();
+                .HasColumnType("schedule_request_status");
 
             modelBuilder.Entity<ActionLog>()
                 .Property(al => al.ActionType)
-                .HasConversion<string>();
+                .HasColumnType("action_type");
 
-            modelBuilder.HasPostgresEnum<AccountRole>("account_role");
             modelBuilder.Entity<Account>()
                 .Property(a => a.Role)
                 .HasColumnType("account_role");

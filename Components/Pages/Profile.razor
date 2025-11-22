@@ -36,7 +36,7 @@ else
                                 {
                                     <MudContainer Class="d-flex" Style="align-items:center">
                                         <MudListItem Text=@job.Job.Name SecondaryText=@(job.Price is null ? job.Job.DefaultPrice.ToString() : job.Price.ToString()) />
-                                        <MudButton @onclick="async () => { await OnServiceClicked(job.Job); }" Disabled="false" Style=@($"background:{(cart.JobSet.Contains(job.Job) ? "gray" : "black")}; height:min-content;")>@(cart.JobSet.Contains(job.Job) ? "Добавлено" : "")</MudButton>
+                                        <MudButton @onclick="async () => { await OnServiceClicked(job.Job); }" Disabled="false" Style=@($"background:{(cart.JobSet.Contains(job.Job) ? "gray" : job.Job.ColorCSS)}; height:min-content;")>@(cart.JobSet.Contains(job.Job) ? "Добавлено" : "")</MudButton>
                                     </MudContainer>
                                 }
                             </MudList>                        
@@ -74,7 +74,7 @@ else
 
             <!-- Calendar Section -->
             <MudText Typo="Typo.h6" Class="mb-2">Schedule</MudText>
-            <MudDatePicker PickerVariant="PickerVariant.Static" Orientation="Orientation.Landscape" Date="@(DateTime.Today)" @bind-value="_selectedDate" />
+            <MudDatePicker PickerVariant="PickerVariant.Static" Orientation="Orientation.Landscape" @bind-Date="_selectedDate" />
 
             <MudDivider Class="my-4" />
 
@@ -138,7 +138,11 @@ else
     {
         AtuPattern = await GetAvailabilityForDay(barber.Id, _selectedDate);
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.ExtraExtraLarge, FullWidth = true };
-        var params_ = new DialogParameters<BarberPageDialog> { { x => x.AtuPattern, AtuPattern }, { y => y.SelectedDate, _selectedDate} };
+        var params_ = new DialogParameters<BarberPageDialog> {
+            { x => x.AtuPattern, AtuPattern }, 
+            { y => y.SelectedDate, _selectedDate}, 
+            { z => z.Barber, barber },
+            { w => w.user, user } };
 
         await DialogService.ShowAsync<BarberPageDialog>("Book time", params_, options);
     }

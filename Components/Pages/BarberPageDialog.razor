@@ -1,5 +1,11 @@
 ﻿@using MudBlazor;
 @using System.Collections;
+@using barberchainAPI.Functional
+@using System.Security.Claims
+@inject CartService CartService
+@inject IJSRuntime JS
+@inject BarberchainDbContext Context
+@inject NavigationManager Navigation
 
 <style>
     .timeline-wrapper {
@@ -14,25 +20,100 @@
 
     .hour-marker {
         flex: 0 0 auto; /* prevent shrinking */
-        width: 80px; /* 4 slots per hour */
+        width: 100px; /* 4 slots per hour */
         text-align: left;
         font-size: 12px;
     }
 
     .time-block {
         flex: 0 0 auto; /* prevent shrinking */
-        width: 20px;
-        height: 20px;
-        border: 1px solid #ccc;
+        width: 25px;
+        height: 25px;
+        border-radius: 5px;
+        border: 1px solid darkgrey;
     }
 
         .time-block.available {
-            background-color: #4CAF50;
+            background-color: white;
         }
 
         .time-block.unavailable {
-            background-color: #eee;
+            background-color: darkgray;
         }
+
+    .placed-job {
+        position: absolute;
+        top: 15px;
+        left: 25px;
+        height: 28px;
+        border-radius: 5px;
+        color: #222;
+        display: flex;
+        align-items: center;
+        opacity: 0.9;
+    }
+
+    .job-item {
+        height: 28px;
+        border-radius: 5px;
+        color: #222;
+        padding-left: 4px;
+        display: flex;
+        align-items: center;
+        opacity: 0.9;
+    }
+
+    .job-cart {
+        margin-top: 1rem;
+        max-width: 800px;
+        display: flex;
+        flex-wrap: wrap;
+    }
+
+    .job-entry {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-right: 2rem;
+        margin-top: 1rem;
+    }
+
+    .timelinePlacedJobs {
+        position: absolute;
+        top: 0px;
+        left: 25px;
+    }
+
+    .hover-layer {
+        position: absolute;
+        top: 15px;
+        left: 25px;
+        height: 30px;
+        pointer-events: none;
+        display: flex;
+    }
+
+    .hover-cell {
+        width: 25px; /* Block width */
+        height: 30px;
+        background: transparent;
+        transition: background-color 80ms ease-out;
+    }
+
+        .hover-cell.highlight-ok {
+            background: rgba(0, 255, 0, 0.3);
+            border-radius: 5px;
+        }
+
+        .hover-cell.highlight-bad {
+            background: rgba(255, 0, 0, 0.3);
+            border-radius: 5px;
+        }
+
+    .time-block,
+    .hover-cell {
+        box-sizing: border-box;
+    }
 </style>
 
 <MudDialog>
@@ -42,31 +123,90 @@
         @SelectedDate.Value.Day.@SelectedDate.Value.Month
     </TitleContent>
     <DialogContent>
-        <div class="timeline-container">
+        <div id="timelineZone"
+             class="timeline-container"
+             @ondragover="OnDragOver"
+             @ondragover:preventDefault="true"
+             @ondrop="OnDrop">
+
             <div class="hour-markers">
                 @for (int i = 0; i < AtuPattern.Length; i += 4)
                 {
-                    int hour = i / 4;
-                    <div class="hour-marker">@hour:00</div>
+                    <div class="hour-marker">@($"{i / 4}:00")</div>
                 }
             </div>
 
             <div class="availability-line">
                 @for (int i = 0; i < AtuPattern.Length; i++)
                 {
-                    bool bit = AtuPattern[i];
-                    <div class="time-block @(bit ? "available" : "unavailable")"></div>
+                    <div class="time-block @(AtuPattern[i] ? "available" : "unavailable")"></div>
+                }
+            </div>
+
+            <div id="timelineHover" class="hover-layer">
+                @for (int i = 0; i < AtuPattern.Length; i++)
+                {
+                    <div class="hover-cell" id="hover-cell-@i"></div>
+                }
+            </div>
+
+            <div class="timelinePlacedJobs">
+                @foreach (var pj in PlacedJobs)
+                {
+                    <div class="placed-job"
+                         draggable="true"
+                         @ondragstart="e => OnPlacedJobDragStart(e, pj)"
+                         style="
+                                left:@(pj.StartIndex * BlockWidth)px;
+                                width:@(pj.Job.DurationAtu * BlockWidth)px;
+                                background:@(pj.Job.ColorCSS);
+                            ">
+                    </div>
                 }
             </div>
         </div>
+
+        <div class="job-cart">
+            @if (cart != null && Barber != null)
+            {
+                @foreach (var job in cart.JobSet.Intersect(Barber.BarberJobs.Select(x => x.Job)))
+                {
+                    <div class="job-entry">
+                        <div class="job-item"
+                             draggable="true"
+                             @ondragstart="e => OnJobDragStart(e, job)"
+                             style="
+                                width:@(job.DurationAtu * BlockWidth)px;
+                                background:@(job.ColorCSS);
+                                @(PlacedJobs.Select(pj => pj.Job).Contains(job) ? "display: hidden; background: gray;"  : "")
+                                ">
+                        </div>
+                        <p>
+                            @job.Name (@(job.DurationAtu * 15) мин)
+                        </p>
+                    </div>
+                }
+            }
+        </div>
+
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel">Cancel</MudButton>
-        <MudButton Color="Color.Primary" OnClick="Submit">OK</MudButton>
+        <MudText Style="color: crimson">@errorMsg</MudText>
+        <MudButton OnClick="Cancel">Отмена</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">Перейти к оплате</MudButton>
     </DialogActions>
 </MudDialog>
 
 @code {
+    private class PlacedJob
+    {
+        public int JobId { get; set; }
+        public Job Job { get; set; }
+
+        public int StartIndex { get; set; }   // ATU index in timeline
+        public int Duration => Job.DurationAtu;
+    }
+
     [CascadingParameter]
     private IMudDialogInstance MudDialog { get; set; }
 
@@ -76,9 +216,211 @@
     [Parameter]
     public DateTime? SelectedDate { get; set; }
 
+    [Parameter]
+    public Barber? Barber { get; set; }
+
+    [Parameter]
+    public ClaimsPrincipal? user { get; set; }
+
     public bool vacantEncountered { get; set; } = false;
 
     private void Cancel() => MudDialog.Cancel();
 
-    private void Submit() => MudDialog.Close();
+    private string? errorMsg = "";
+
+    private async Task Submit()
+    {
+        Console.WriteLine(Context.Model.ToDebugString());
+
+        if (PlacedJobs.Count <= 0)
+        {
+            errorMsg = "Выберите временные промежутки для услуг (блоки можно перетаскивать)";
+            return;
+        }
+
+        int startIdx = PlacedJobs.MinBy(pj => pj.StartIndex).StartIndex;
+
+        var firstpj = PlacedJobs.OrderBy(pj => pj.StartIndex).FirstOrDefault();
+        var lastpj = PlacedJobs.OrderBy(pj => pj.StartIndex).LastOrDefault();
+        if (lastpj.StartIndex + lastpj.Duration - firstpj.StartIndex > PlacedJobs.Select(pj => pj.Duration).Sum())
+        {
+            errorMsg = "Между услугами не должно быть пробелов";
+            return;
+        }
+
+        var order = new Order
+            {
+                BarberId = Barber.Id,
+                AccountId = user.Identity.IsAuthenticated
+                    ? int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value)
+                    : null,
+                Method = OrderMethod.Online,
+                Status = OrderStatus.Pending,
+                OrderTime = DateTime.UtcNow
+            };
+
+        order.AppointedTime = new DateTime(
+            SelectedDate.Value.Year,
+            SelectedDate.Value.Month,
+            SelectedDate.Value.Day,
+            startIdx / 4,
+            (startIdx % 4) * 15,
+            0,
+            DateTimeKind.Utc
+        );
+
+        order.OrderJobs = PlacedJobs.Select(job => new OrderJob
+            {
+                JobId = job.JobId
+            }).ToList();
+
+        Context.Orders.Add(order);
+        await Context.SaveChangesAsync(); // adding order to db
+
+        var bscd = await Context.BarberScheduleDays.Where(d => d.Date == SelectedDate).FirstOrDefaultAsync();
+
+        int i = firstpj.StartIndex;
+        while (i <= lastpj.StartIndex + lastpj.Duration)
+        {
+            bscd.AtuPattern[i] = false;
+            i++;
+        }
+
+        await Context.SaveChangesAsync(); // updating barber_schedule_day in the DB
+
+        Navigation.NavigateTo($"/payment/{order.Id}");
+        Navigation.Refresh();
+    }
+
+    private Cart? cart;
+
+    protected override async Task OnAfterRenderAsync(bool firstTime)
+    {
+        if (firstTime)
+        {
+            cart = await CartService.GetCart();
+            StateHasChanged();
+        }
+    }
+
+    const int BlockWidth = 25;
+
+    Job? _draggingJob;
+    PlacedJob? _draggingExisting;
+    bool _isDraggingExisting = false;
+
+    List<PlacedJob> PlacedJobs = new();
+
+    void OnJobDragStart(DragEventArgs e, Job job)
+    {
+        _draggingJob = job;
+        _draggingExisting = null;
+        _isDraggingExisting = false;
+    }
+
+    void OnPlacedJobDragStart(DragEventArgs e, PlacedJob pj)
+    {
+        _draggingExisting = pj;
+        _draggingJob = pj.Job;
+        _isDraggingExisting = true;
+    }
+
+    async Task OnDragOver(DragEventArgs e)
+    {
+        await HighlightPotentialCells(e.ClientX);
+    }
+
+    async Task OnDrop(DragEventArgs e)
+    {
+        await ClearHighlight();
+
+        if (_draggingJob == null) return;
+
+        int snapIndex = await JS.InvokeAsync<int>(
+            "timelineHelper.snapIndex",
+            "timelineZone",
+            e.ClientX,
+            BlockWidth);
+
+        if (!CanPlace(_draggingJob, snapIndex, _draggingExisting))
+        {
+            _draggingJob = null;
+            _draggingExisting = null;
+            return;
+        }
+
+        if (_isDraggingExisting)
+        {
+            // Move existing job
+            _draggingExisting!.StartIndex = snapIndex;
+        }
+        else
+        {
+            // Add new job
+            PlacedJobs.Add(new PlacedJob
+                {
+                    JobId = _draggingJob.Id,
+                    Job = _draggingJob,
+                    StartIndex = snapIndex
+                });
+        }
+
+        _draggingJob = null;
+        _draggingExisting = null;
+    }
+
+    async Task HighlightPotentialCells(double mouseX)
+    {
+        if (_draggingJob == null) return;
+
+        int start = await JS.InvokeAsync<int>("timelineHelper.snapIndex",
+                                               "timelineZone",
+                                               mouseX,
+                                               BlockWidth);
+
+        int len = _draggingJob.DurationAtu;
+
+        int[] indexes = Enumerable.Range(start, len)
+                                  .Where(i => i >= 0 && i < AtuPattern.Length)
+                                  .ToArray();
+
+        bool ok = CanPlace(_draggingJob, start, _draggingExisting);
+
+        await JS.InvokeVoidAsync("timelineHover.clear", AtuPattern.Length);
+        await JS.InvokeVoidAsync("timelineHover.highlight", indexes, ok);
+    }
+
+    async Task ClearHighlight()
+    {
+        await JS.InvokeVoidAsync("timelineHover.clear", AtuPattern.Length);
+    }
+
+
+    bool CanPlace(Job job, int startIndex, PlacedJob? moving = null)
+    {
+        int end = startIndex + job.DurationAtu;
+
+        if (end > AtuPattern.Length || startIndex < 0)
+            return false;
+
+        // Check availability mask
+        for (int i = startIndex; i < end; i++)
+            if (!AtuPattern[i])
+                return false;
+
+        // Check overlaps
+        foreach (var pj in PlacedJobs)
+        {
+            if (moving != null && pj == moving)
+                continue;
+
+            int otherStart = pj.StartIndex;
+            int otherEnd = pj.StartIndex + pj.Duration;
+
+            bool overlap = !(end <= otherStart || startIndex >= otherEnd);
+            if (overlap) return false;
+        }
+
+        return true;
+    }
 }

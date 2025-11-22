@@ -1,0 +1,161 @@
+﻿@page "/payment/{orderid:int}"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Authorization
+@using MudBlazor
+@using System.Security.Claims
+@inject NavigationManager Navigation
+@inject BarberchainDbContext Context
+@inject AuthenticationStateProvider AuthStateProvider
+
+@if (!success)
+{
+    <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6">
+
+        <MudText Typo="Typo.h4" Class="mb-4">Payment</MudText>
+
+        <MudPaper Elevation="4" Class="pa-4">
+
+            <!-- Order Summary -->
+            <MudText Typo="Typo.h6">Order #@orderid</MudText>
+            <MudDivider Class="my-2" />
+            <MudStack Spacing="2">
+                    @if (service != null)
+                    {
+                        <MudText>
+                        Услуги: @string.Join(", ", service.Where(s => s != null).Select(s => s.Name))
+                        </MudText>
+                        <MudText>
+                        Стоимость: @(
+                        order.Barber.BarberJobs
+                                 .Where(bj => order.OrderJobs.Select(oj => oj.JobId).Contains(bj.JobId)) // only jobs in this order
+                                 .Sum(bj => bj.Price ?? bj.Job.DefaultPrice))
+                        </MudText>
+                        <MudText>Назначенное время: @order.AppointedTime</MudText>
+                    }
+                    else
+                    {
+                        <MudText>
+                            Загрузка...
+                        </MudText>
+                    }
+            </MudStack>
+
+            <MudDivider Class="my-3" />
+
+            <!-- Payment Details -->
+            <MudForm @ref="_form">
+                <MudTextField Label="Cardholder Name" @bind-Value="model.CardholderName"
+                              Required="true" RequiredError="Cardholder name is required" />
+
+                <MudTextField Label="Card Number" @bind-Value="model.CardNumber"
+                              Required="true" RequiredError="Card number is required"
+                              MaxLength="16" Pattern="^\d{16}$" PatternError="Card number must be 16 digits" />
+
+                <MudStack Direction="Row" Spacing="2">
+                    <MudTextField Label="Expiry MM/YY" @bind-Value="model.Expiry"
+                                  Required="true" RequiredError="Expiry is required"
+                                  Pattern="^(0[1-9]|1[0-2])\/\d{2}$" PatternError="Expiry must be MM/YY" />
+
+                    <MudTextField Label="CVC" @bind-Value="model.CVC"
+                                  Required="true" RequiredError="CVC is required"
+                                  MaxLength="3" Pattern="^\d{3}$" PatternError="CVC must be 3 digits" />
+                </MudStack>
+
+                <MudDivider Class="my-3" />
+
+                <!-- Pay Button -->
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                           OnClick="HandlePayClick">
+                    Pay Now
+                </MudButton>
+            </MudForm>
+
+        </MudPaper>
+
+    </MudContainer>
+}
+else
+{
+    <PaymentSuccess orderid="@orderid" Account="@acc"/>
+}
+
+@code {
+    [Parameter] public int orderid { get; set; }
+
+    public ClaimsPrincipal? user { get; set; }
+
+    private MudForm _form;
+    private bool success = false;
+    private bool isFormValid = false;
+
+    private Account? acc;
+    private Order? order;
+
+    private IEnumerable<Job> service;
+
+    private PaymentModel model = new PaymentModel();
+
+    private DateTime AppointmentTime { get; set; } = DateTime.Now.AddDays(1);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        user = authState.User;
+
+        order = await Context.Orders
+            .Include(o => o.Account)
+            .Include(o => o.OrderJobs)
+                .ThenInclude(oj => oj.Job)
+            .Include(o => o.Barber)
+                .ThenInclude(b => b.BarberJobs)
+                    .ThenInclude(bj => bj.Job)
+            .Where(o => o.Id == orderid)
+            .FirstOrDefaultAsync();
+        if (order is null)
+        {
+            Navigation.NavigateTo("/");
+            Navigation.Refresh();
+        }
+        else
+        {
+            acc = order?.Account;
+
+            if (acc.Id != int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value))
+            {
+                Navigation.NavigateTo("/");
+                Navigation.Refresh();
+            }
+
+            success = order.IsPaid;
+            service = order.OrderJobs.Select(oj => oj.Job);
+        }
+    }
+
+    private async Task HandlePayClick()
+    {
+        if (_form == null) return;
+
+        await _form.Validate(); // validates the form fields
+        isFormValid = _form.IsValid;
+
+        if (isFormValid)
+        {
+            order.IsPaid = true;
+            await Context.SaveChangesAsync();
+            success = true;
+            StateHasChanged();
+        }
+        else
+        {
+            // Form invalid, errors will display automatically
+        }
+    }
+
+    public class PaymentModel
+    {
+        public string CardholderName { get; set; }
+        public string CardNumber { get; set; }
+        public string Expiry { get; set; }
+        public string CVC { get; set; }
+    }
+}

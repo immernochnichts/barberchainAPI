@@ -12,7 +12,7 @@
             {
                 <MudContainer Class="d-flex" Style="align-items:center">
                     <MudListItem Text=@job.Name />
-                    <MudButton @onclick="async () => { await OnServiceClicked(job); }" Disabled="false" Style=@($"background:{(cart.JobSet.Contains(job) ? "gray" : "black")}; height:min-content;")>@(cart.JobSet.Contains(job) ? "Добавлено" : "")</MudButton>
+                    <MudButton @onclick="async () => { await OnServiceClicked(job); }" Disabled="false" Style=@($"background:{(cart.JobSet.Contains(job) ? "gray" : job.ColorCSS)}; height:min-content;")>@(cart.JobSet.Contains(job) ? "Добавлено" : "")</MudButton>
                 </MudContainer>
             }
         </MudList>

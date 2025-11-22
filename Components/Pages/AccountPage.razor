@@ -20,15 +20,15 @@ else
         @if (IsOwner)
         {
             <MudButtonGroup Color="Color.Primary" Variant="Variant.Filled">
-                <MudButton @onclick="() => currentComponent = AccountComponent.Profile">Профиль</MudButton>
-                <MudButton @onclick="() => currentComponent = AccountComponent.Reviews">Мои отзывы</MudButton>
-                <MudButton @onclick="() => currentComponent = AccountComponent.Notifications">Уведомления</MudButton>
-                <MudButton @onclick="() => currentComponent = AccountComponent.OrderHistory">История заказов</MudButton>
-                <MudButton @onclick="() => currentComponent = AccountComponent.Cart">Корзина</MudButton>
+                <MudButton @onclick="() => CurrentComponent = AccountComponent.Profile">Профиль</MudButton>
+                <MudButton @onclick="() => CurrentComponent = AccountComponent.Reviews">Мои отзывы</MudButton>
+                <MudButton @onclick="() => CurrentComponent = AccountComponent.Notifications">Уведомления</MudButton>
+                <MudButton @onclick="() => CurrentComponent = AccountComponent.OrderHistory">История заказов</MudButton>
+                <MudButton @onclick="() => CurrentComponent = AccountComponent.Cart">Корзина</MudButton>
             </MudButtonGroup>
         }
         
-        @switch (currentComponent)
+        @switch (CurrentComponent)
         {
             case AccountComponent.Profile:
             {
@@ -62,7 +62,7 @@ else
 
 @code
 {
-    private enum AccountComponent
+    public enum AccountComponent
     {
         Profile,
         Reviews,
@@ -80,7 +80,8 @@ else
     [Inject]
     AuthenticationStateProvider AuthStateProvider { get; set; }
 
-    private AccountComponent currentComponent = AccountComponent.Profile;
+    [Parameter]
+    public AccountComponent CurrentComponent { get; set; } = AccountComponent.Profile;
 
     [Parameter] public int id { get; set; }
     protected bool IsOwner = false;
