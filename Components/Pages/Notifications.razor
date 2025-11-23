@@ -1,39 +1,158 @@
 ﻿@inject BarberchainDbContext Context
 
-@if (NotificationList != null && NotificationList.Count > 0)
+@inject BarberchainDbContext Context
+
+@if (NotificationList?.Count > 0)
 {
     <MudPaper Elevation="3" Class="p-4 rounded-lg">
-        <MudContainer Style="display:flex; padding-top:1rem;">
-            <MudContainer Style="display:flex; flex-direction:column; align-items:flex-start;">
-                @foreach (var n in NotificationList)
-                {
-                    <MudPaper>
-                        <MudText>@n.Type</MudText>
-                        <MudText>@n.Content</MudText>
-                        <MudText>@n.CreatedAt</MudText>
-                    </MudPaper>
-                }
-            </MudContainer>
-        </MudContainer>
+        <MudStack Spacing="2">
+            <MudText Typo="Typo.h5" Class="mb-2">Notifications</MudText>
+
+            @foreach (var n in NotificationList)
+            {
+                <MudCard Class="@(n.IsViewed ? "notification-viewed mb-2" : "mb-2")"
+                         Elevation="2" @onmouseover="() => MarkViewedAsync(n)">
+                    <MudCardContent>
+                        <MudStack Spacing="1">
+
+                            <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="1">
+                                <MudIcon Color="@GetColor(n.Type)"
+                                            Icon="@GetIcon(n.Type)"
+                                            Style="@((n.IsViewed ? "opacity:0.4;" : ""))" />
+                                <MudText Typo="Typo.subtitle1"
+                                            Class="@(n.IsViewed ? "text-muted" : "")">
+                                    @GetTypeNameRus(n.Type)
+                                </MudText>
+                            </MudStack>
+
+                            <MudText Typo="Typo.body2"
+                                        Class="@(n.IsViewed ? "text-muted" : "")">
+                                @n.Content
+                            </MudText>
+
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                @n.CreatedAt?.ToString("dd MMMM yyyy HH:mm")
+                                (@GetRelativeTime(n.CreatedAt.Value))
+                            </MudText>
+                        </MudStack>
+                    </MudCardContent>
+                </MudCard>
+            }
+
+        </MudStack>
     </MudPaper>
 }
 else
 {
-    <MudPaper Elevation="3" Class="p-4 rounded-lg">
-        <MudText>
-            No notifications found for your account
-        </MudText>
+    <MudPaper Elevation="3" Class="p-4 rounded-lg" style="text-align:center;">
+        <MudIcon Icon="@Icons.Material.Filled.NotificationsOff" Color="Color.Secondary" Size="Size.Large" />
+        <MudText Typo="Typo.h6" class="mt-2">No notifications</MudText>
+        <MudText Typo="Typo.body2">You're all caught up!</MudText>
     </MudPaper>
 }
+
+<style>
+    .notification-viewed {
+        background-color: #f1f1f1 !important;
+        opacity: 0.8;
+    }
+
+    .text-muted {
+        color: rgba(0, 0, 0, 0.6) !important;
+    }
+</style>
 
 @code {
     [Parameter]
     public int id { get; set; }
 
-    private List<Notification> NotificationList { get; set; } = new();
+    private List<NotificationViewModel> NotificationList { get; set; } = new();
 
     protected override async Task OnInitializedAsync()
     {
-        NotificationList = await Context.AccountNotifications.Where(an => an.AccountId == id).Select(an => an.Notification).ToListAsync();
+        NotificationList = await Context.AccountNotifications
+            .Where(an => an.AccountId == id)
+            .Select(an => new NotificationViewModel
+                {
+                    NotificationId = an.NotificationId,
+                    AccountNotificationId = an.AccountId,
+                    IsViewed = an.IsViewed,
+                    Type = an.Notification.Type,
+                    Content = an.Notification.Content,
+                    CreatedAt = an.Notification.CreatedAt
+                })
+            .OrderByDescending(n => n.CreatedAt)
+            .ToListAsync();
+    }
+
+    private async Task MarkViewedAsync(NotificationViewModel n)
+    {
+        if (n.IsViewed)
+            return;
+
+        var record = await Context.AccountNotifications
+            .FirstOrDefaultAsync(a =>
+                a.AccountId == id &&
+                a.NotificationId == n.NotificationId);
+
+        if (record == null || record.IsViewed)
+            return;
+
+        record.IsViewed = true;
+        n.IsViewed = true;
+
+        await Context.SaveChangesAsync();
+        StateHasChanged();
+    }
+
+    // --- Helpers (icon, color, type name, relative time) ---
+
+    private string GetIcon(NotificationType type) => type switch
+    {
+        NotificationType.General => Icons.Material.Filled.Notifications,
+        NotificationType.Warning => Icons.Material.Filled.WarningAmber,
+        NotificationType.Promotion => Icons.Material.Filled.LocalOffer,
+        NotificationType.System => Icons.Material.Filled.Settings,
+        _ => Icons.Material.Filled.Notifications
+    };
+
+    private Color GetColor(NotificationType type) => type switch
+    {
+        NotificationType.General => Color.Primary,
+        NotificationType.Warning => Color.Warning,
+        NotificationType.Promotion => Color.Success,
+        NotificationType.System => Color.Info,
+        _ => Color.Default
+    };
+
+    private string GetTypeNameRus(NotificationType type) => type switch
+    {
+        NotificationType.General => "Общее",
+        NotificationType.Warning => "Предупреждение",
+        NotificationType.Promotion => "Повышение",
+        NotificationType.System => "Системное",
+        _ => "Неизвестно"
+    };
+
+    private string GetRelativeTime(DateTime date)
+    {
+        var span = DateTime.Now - date;
+
+        if (span.TotalMinutes < 1) return "только что";
+        if (span.TotalMinutes < 60) return $"{(int)span.TotalMinutes} минут назад";
+        if (span.TotalHours < 24) return $"{(int)span.TotalHours} часов назад";
+        if (span.TotalDays < 7) return $"{(int)span.TotalDays} дней назад";
+
+        return date.ToString("dd MMM yyyy");
+    }
+
+    public class NotificationViewModel
+    {
+        public int NotificationId { get; set; }
+        public int AccountNotificationId { get; set; }
+        public bool IsViewed { get; set; }
+        public NotificationType Type { get; set; }
+        public string Content { get; set; }
+        public DateTime? CreatedAt { get; set; }
     }
 }

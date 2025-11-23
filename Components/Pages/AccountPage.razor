@@ -7,7 +7,6 @@
 @using System.Security.Claims
 @using barberchainAPI.Functional
 @inject CartService CartService
-<MudDialogProvider />
 
 @if (account is null)
 {
@@ -80,8 +79,11 @@ else
     [Inject]
     AuthenticationStateProvider AuthStateProvider { get; set; }
 
-    [Parameter]
     public AccountComponent CurrentComponent { get; set; } = AccountComponent.Profile;
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "component")]
+    public string ComponentQuery { get; set; }
 
     [Parameter] public int id { get; set; }
     protected bool IsOwner = false;
@@ -126,6 +128,33 @@ else
                 .Include(x => x.Job)
                 .Where(x => x.BarberId == barber.Id)
                 .ToListAsync();
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (!string.IsNullOrEmpty(ComponentQuery)
+            && Enum.TryParse<AccountComponent>(ComponentQuery, true, out var comp))
+        {
+            if (user == null)
+            {
+                CurrentComponent = AccountComponent.Profile;
+                return;
+            }
+
+            int signedInUserId = int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
+
+            if (id != signedInUserId)
+            {
+                CurrentComponent = AccountComponent.Profile;
+                return;
+            }
+
+            CurrentComponent = comp;
+        }
+        else
+        {
+            CurrentComponent = AccountComponent.Profile;
         }
     }
 

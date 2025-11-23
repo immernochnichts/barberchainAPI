@@ -14,5 +14,9 @@ namespace barberchainAPI.Data
         public int NotificationId { get; set; }
         [ForeignKey(nameof(NotificationId))]
         public Notification Notification { get; set; }
+
+        [Required]
+        [Column("is_viewed")]
+        public bool IsViewed { get; set; } = false;
     }
 }

@@ -19,7 +19,7 @@ namespace barberchainAPI.Data
 
         [Required]
         [Column("date")]
-        public DateTime Date { get; set; }
+        public DateOnly Date { get; set; }
 
         [Column("atu_pattern")]
         public BitArray AtuPattern { get; set; }

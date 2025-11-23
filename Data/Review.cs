@@ -33,8 +33,13 @@ namespace barberchainAPI.Data
         public bool IsDeleted { get; set; } = false;
 
         [Column("fk_order")]
-        public int OrderId { get; set; }
+        public int? OrderId { get; set; }
         [ForeignKey(nameof(OrderId))]
         public Order? Order { get; set; }
+
+        [Required]
+        [Column("created_at")]
+        public DateTime CreatedAt { get; set; }
+
     }
 }

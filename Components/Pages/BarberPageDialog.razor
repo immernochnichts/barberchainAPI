@@ -230,8 +230,6 @@
 
     private async Task Submit()
     {
-        Console.WriteLine(Context.Model.ToDebugString());
-
         if (PlacedJobs.Count <= 0)
         {
             errorMsg = "Выберите временные промежутки для услуг (блоки можно перетаскивать)";
@@ -256,7 +254,7 @@
                     : null,
                 Method = OrderMethod.Online,
                 Status = OrderStatus.Pending,
-                OrderTime = DateTime.UtcNow
+                OrderTime = DateTime.Now
             };
 
         order.AppointedTime = new DateTime(
@@ -266,7 +264,7 @@
             startIdx / 4,
             (startIdx % 4) * 15,
             0,
-            DateTimeKind.Utc
+            DateTimeKind.Local
         );
 
         order.OrderJobs = PlacedJobs.Select(job => new OrderJob
@@ -274,19 +272,31 @@
                 JobId = job.JobId
             }).ToList();
 
+        order.PendingUntil = DateTime.Now.AddMinutes(10);
+
         Context.Orders.Add(order);
         await Context.SaveChangesAsync(); // adding order to db
 
-        var bscd = await Context.BarberScheduleDays.Where(d => d.Date == SelectedDate).FirstOrDefaultAsync();
+        var bscd = await Context.BarberScheduleDays
+            .Where(d => d.Date == DateOnly.FromDateTime(SelectedDate.Value))
+            .FirstOrDefaultAsync();
+
+        var newBits = new BitArray(bscd.AtuPattern);  // clone
 
         int i = firstpj.StartIndex;
         while (i <= lastpj.StartIndex + lastpj.Duration)
         {
-            bscd.AtuPattern[i] = false;
+            newBits[i] = false;
             i++;
         }
 
-        await Context.SaveChangesAsync(); // updating barber_schedule_day in the DB
+        bscd.AtuPattern = newBits; // updating barber_schedule_day in the DB
+        await Context.SaveChangesAsync();
+
+        foreach (var job in PlacedJobs.Select(pj => pj.Job))
+        {
+            await CartService.RemoveItem(job.Id);
+        }
 
         Navigation.NavigateTo($"/payment/{order.Id}");
         Navigation.Refresh();

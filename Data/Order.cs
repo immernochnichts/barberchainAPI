@@ -58,6 +58,9 @@ namespace barberchainAPI.Data
         [Column("is_paid")]
         public bool IsPaid { get; set; } = false;
 
+        [Column("pending_until")]
+        public DateTime? PendingUntil { get; set; }
+
         public ICollection<OrderJob> OrderJobs { get; set; }
     }
 }

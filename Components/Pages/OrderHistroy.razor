@@ -1,45 +1,123 @@
 ﻿@inject BarberchainDbContext Context
 @using MudBlazor
 
-@if (OrderList != null && OrderList.Count > 0)
+@if (OrderList?.Count > 0)
 {
-    <MudPaper Elevation="3" Class="p-4 rounded-lg">
-        <MudContainer Style="display:flex; padding-top:1rem;">
-            <MudContainer Style="display:flex; flex-direction:column; align-items:flex-start;">
-                @foreach (var o in OrderList)
-                {
-                    <MudDivider></MudDivider>
-                    <MudStack>
-                        <MudText>@o.AppointedTime</MudText>
-                        <MudText>@o.Status</MudText>
-                        <MudText>@o.OrderTime</MudText>
-                        <MudText>@o.Method</MudText>
-                        <MudText>@string.Join(", ", o.OrderJobs.Select(oj => oj.Job).Where(j => j != null).Select(j => j.Name))</MudText>
-                    </MudStack>
-                }
-            </MudContainer>
-        </MudContainer>
+    <MudPaper Elevation="3" Class="p-6 rounded-lg">
+        <MudStack Spacing="3">
+            <MudText Typo="Typo.h4">История заказов</MudText>
+            <MudDivider Class="mb-2" />
+
+            @foreach (var o in OrderList)
+            {
+                <a href=@($"/payment/{o.Id}")>
+                    <MudCard Elevation="2" Class="mb-4">
+                        <MudCardContent>
+                            <MudStack Spacing="2">
+
+                                <!-- Header -->
+                                <MudStack Direction="Row" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                    <MudText Typo="Typo.h6">Заказ №@o.Id</MudText>
+                                    <MudChip T="bool" Color="@GetStatusColor(o.Status)"
+                                             Label="true"
+                                             Variant="Variant.Filled">
+                                        @GetStatusRus(o.Status)
+                                    </MudChip>
+                                </MudStack>
+
+                                <MudDivider />
+
+                                <!-- Appointed time -->
+                                <MudStack Direction="Row" Spacing="1">
+                                    <MudIcon Icon="@Icons.Material.Filled.EventAvailable" Color="Color.Primary" />
+                                    <MudText>
+                                        Назначенное время: @o.AppointedTime.ToString("dd MMMM yyyy, HH:mm")
+                                    </MudText>
+                                </MudStack>
+
+                                <!-- Order time -->
+                                <MudStack Direction="Row" Spacing="1">
+                                    <MudIcon Icon="@Icons.Material.Filled.Schedule" Color="Color.Secondary" />
+                                    <MudText>
+                                        Создан: @o.OrderTime.ToString("dd MMMM yyyy, HH:mm")
+                                    </MudText>
+                                </MudStack>
+
+                                <!-- Method -->
+                                <MudStack Direction="Row" Spacing="1">
+                                    <MudIcon Icon="@(o.Method == OrderMethod.Online
+                                    ? Icons.Material.Filled.Computer
+                                    : Icons.Material.Filled.Phone )"
+                                             Color="Color.Info" />
+                                    <MudText>
+                                        Способ записи: @(o.Method == OrderMethod.Online ? "Онлайн" : "По телефону")
+                                    </MudText>
+                                </MudStack>
+
+                                <MudDivider Class="my-1" />
+
+                                <!-- Jobs -->
+                                <MudText Typo="Typo.subtitle2" Class="mt-1">Услуги:</MudText>
+                                <MudStack Direction="Row" Spacing="1" Wrap="Wrap.Wrap">
+                                    @foreach (var job in o.OrderJobs.Select(j => j.Job).Where(j => j != null))
+                                    {
+                                        <MudChip T="bool" Label="true" Color="Color.Default" Variant="Variant.Outlined" Class="mb-1">
+                                            @job.Name
+                                        </MudChip>
+                                    }
+                                </MudStack>
+
+                            </MudStack>
+                        </MudCardContent>
+                    </MudCard>
+                </a>
+            }
+        </MudStack>
     </MudPaper>
 }
 else
 {
-    <MudPaper Elevation="3" Class="p-4 rounded-lg">
-        <MudText>
-            No orders found for your account
-        </MudText>
+    <MudPaper Elevation="3" Class="p-4 rounded-lg" Style="text-align:center;">
+        <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Color="Color.Secondary" Size="Size.Large" />
+        <MudText Typo="Typo.h6" Class="mt-2">У вас нет заказов</MudText>
+        <MudText Typo="Typo.body2">История заказов будет отображаться здесь</MudText>
     </MudPaper>
 }
 
 @code {
-    [Parameter]
-    public int id { get; set; }
+    [Parameter] public int id { get; set; }
 
-    private List<Order> OrderList { get; set; }
+    private List<Order> OrderList { get; set; } = new();
 
     protected override async Task OnInitializedAsync()
     {
         OrderList = await Context.Orders
             .Include(o => o.OrderJobs)
-            .Where(o => o.AccountId == id).ToListAsync();
+                .ThenInclude(oj => oj.Job)
+            .Where(o => o.AccountId == id)
+            .OrderBy(o => o.AppointedTime)
+            .ToListAsync();
     }
+
+    private Color GetStatusColor(OrderStatus status) => status switch
+    {
+        OrderStatus.Pending    => Color.Warning,
+        OrderStatus.Accepted   => Color.Info,
+        OrderStatus.Waiting    => Color.Primary,
+        OrderStatus.Processing => Color.Secondary,
+        OrderStatus.Complete   => Color.Success,
+        OrderStatus.Declined   => Color.Error,
+        _ => Color.Default
+    };
+
+    private string GetStatusRus(OrderStatus status) => status switch
+    {
+        OrderStatus.Pending    => "В процессе оформления",
+        OrderStatus.Accepted   => "Принят",
+        OrderStatus.Waiting    => "Ожидание назначенного времени",
+        OrderStatus.Processing => "В процессе выполнения",
+        OrderStatus.Complete   => "Завершён",
+        OrderStatus.Declined   => "Отклонён",
+        _ => "Неизвестно"
+    };
 }

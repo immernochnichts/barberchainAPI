@@ -26,8 +26,6 @@ namespace barberchainAPI
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
 
-            //AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
-
             builder.Services.AddDbContext<BarberchainDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"),
                 o =>
                 {
@@ -37,6 +35,7 @@ namespace barberchainAPI
                     o.MapEnum<ComplaintStatus>("complaint_status");
                     o.MapEnum<ScheduleRequestStatus>("schedule_request_status");
                     o.MapEnum<ActionType>("action_type");
+                    o.MapEnum<NotificationType>("notification_type");
                 }
             ));
 
@@ -58,6 +57,7 @@ namespace barberchainAPI
 
             builder.Services.AddScoped<LocalStorageService>();
             builder.Services.AddScoped<CartService>();
+            builder.Services.AddHostedService<OrderExpirationService>();
 
             var app = builder.Build();
 

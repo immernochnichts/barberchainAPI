@@ -70,17 +70,24 @@ namespace barberchainAPI.Data
                       .HasColumnType("order_method");
 
                 entity.Property(o => o.OrderTime)
-                  .HasColumnType("timestamp with time zone")
+                  .HasColumnType("timestamp without time zone")
                   .HasConversion(
-                      v => v.ToUniversalTime(),
-                      v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
+                      v => v,
+                      v => DateTime.SpecifyKind(v, DateTimeKind.Local)
                   );
 
                 entity.Property(o => o.AppointedTime)
-                    .HasColumnType("timestamp with time zone")
+                    .HasColumnType("timestamp without time zone")
                     .HasConversion(
-                        v => v.ToUniversalTime(),
-                        v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
+                        v => v,
+                        v => DateTime.SpecifyKind(v, DateTimeKind.Local)
+                    );
+
+                entity.Property(o => o.PendingUntil)
+                    .HasColumnType("timestamp without time zone")
+                    .HasConversion(
+                        v => v,
+                        v => DateTime.SpecifyKind(v.Value, DateTimeKind.Local)
                     );
             });
 

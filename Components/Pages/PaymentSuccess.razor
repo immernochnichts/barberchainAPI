@@ -1,5 +1,6 @@
 ﻿@using MudBlazor
 @inject NavigationManager Navigation
+@inject BarberchainDbContext Context
 
 <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6 text-center">
 
@@ -8,29 +9,36 @@
         <!-- Success Icon -->
         <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Large" Class="mb-4" />
 
-        <!-- Success Text -->
-        <MudText Typo="Typo.h4" Class="mb-2">Payment Successful!</MudText>
-        <MudText Typo="Typo.subtitle1" Class="mb-4">Your order <b>#@orderid</b> has been successfully processed.</MudText>
+        @if (order != null)
+        {
+            <MudText Typo="Typo.h4" Class="mb-2">@(order.IsPaid ? "Заказ оформлен и оплачен" : "Заказ оформлен")</MudText>
+            <MudText Typo="Typo.subtitle1" Class="mb-4">Ваш заказ <b>#@order.Id</b> был успешно обработан.</MudText>
 
-        <!-- Optional Details -->
-        <MudStack Spacing="1" AlignItems="AlignItems.Center" Class="mb-4">
-            <MudText>Amount Paid: <b>$25.00</b></MudText>
-            <MudText>Payment Method: <b>Credit Card</b></MudText>
-            <MudText>Appointment: <b>@AppointmentTime.ToString("f")</b></MudText>
-        </MudStack>
+            <MudStack Spacing="1" AlignItems="AlignItems.Start" Class="mb-4">
+                <MudText>
+                    Стоимость заказа: <b>@(
+                        order.Barber.BarberJobs
+                        .Where(bj => order.OrderJobs.Select(oj => oj.JobId).Contains(bj.JobId)) // only jobs in this order
+                        .Sum(bj => bj.Price ?? bj.Job.DefaultPrice))
+                    </b>
+                </MudText>
+                <MudText>Способ оплаты: <b>@(order.IsPaid ? "Банковская карта" : "На месте")</b></MudText>
+                <MudText>Назначенное время: <b>@order.AppointedTime</b></MudText>
+            </MudStack>
 
-        <!-- Buttons -->
-        <MudStack Direction="Row" Spacing="2" Justify="Justify.Center">
-            @if (Account != null)
-            {
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GoToOrders">
-                    View My Orders
+            <!-- Buttons -->
+            <MudStack Direction="Row" Spacing="2" Justify="Justify.Center">
+                @if (Account != null)
+                {
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GoToOrders">
+                        Мои заказы
+                    </MudButton>
+                }
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="GoHome">
+                    На главную
                 </MudButton>
-            }
-            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="GoHome">
-                Go Home
-            </MudButton>
-        </MudStack>
+            </MudStack>
+        }
 
     </MudPaper>
 
@@ -38,18 +46,14 @@
 
 @code {
     [Parameter]
-    public int orderid { get; set; }
-
-    [Parameter]
     public Account Account { get; set; }
 
-    // Sample appointment time (replace with actual data fetch)
-    private DateTime AppointmentTime { get; set; } = DateTime.Now.AddDays(1);
+    [Parameter]
+    public Order? order { get; set; }
 
     private void GoToOrders()
     {
-        
-        Navigation.NavigateTo($"/account/{Account.Id}?CurrentComponent=AccountComponent.OrderHistory");
+        Navigation.NavigateTo($"/account/{Account.Id}?component=OrderHistory");
         Navigation.Refresh();
     }
 

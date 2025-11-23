@@ -1,28 +1,49 @@
 ﻿@inject BarberchainDbContext Context
+@using MudBlazor
 
-@if (ReviewList != null && ReviewList.Count > 0)
+@if (ReviewList?.Count > 0)
 {
-    <MudPaper Elevation="3" Class="p-4 rounded-lg">
-        <MudContainer Style="display:flex; padding-top:1rem;">
-            <MudContainer Style="display:flex; flex-direction:column; align-items:flex-start;">
-                @foreach (var r in ReviewList)
-                {
-                    <MudPaper>
-                        <MudText>@r.Score</MudText>
-                        <MudText>@r.Text</MudText>
-                        <MudText>@r.Barber.Account.Lastname</MudText>
-                    </MudPaper>
-                }
-            </MudContainer>
-        </MudContainer>
+    <MudPaper Elevation="3" Class="p-6 rounded-lg">
+        <MudStack Spacing="3">
+            <MudText Typo="Typo.h4">Мои отзывы</MudText>
+            <MudDivider Class="mb-2" />
+
+            @foreach (var r in ReviewList)
+            {
+                <MudCard Elevation="2" Class="mb-3">
+                    <MudCardContent>
+                        <MudStack Spacing="1">
+
+                            <!-- Score + Barber -->
+                            <MudStack Direction="Row" AlignItems="AlignItems.Start" Spacing="2">
+                                <MudRating SelectedValue="@((int)r.Score)" MaxValue="5" ReadOnly="true" Size="Size.Medium"/>
+                                <a href=@($"account/{r.Barber?.AccountId}")><MudText Style="color: cadetblue" Typo="Typo.subtitle1">@r.Barber?.Account?.Lastname@r.Barber?.Account?.Restname</MudText></a>
+                            </MudStack>
+
+                            <!-- Review text -->
+                            <MudText Typo="Typo.body2">@r.Text</MudText>
+
+                            <!-- Optional date -->
+                            @if (r.CreatedAt != null)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @r.CreatedAt.ToString("dd MMMM yyyy")
+                                </MudText>
+                            }
+
+                        </MudStack>
+                    </MudCardContent>
+                </MudCard>
+            }
+        </MudStack>
     </MudPaper>
 }
 else
 {
-    <MudPaper Elevation="3" Class="p-4 rounded-lg">
-        <MudText>
-            No reviews found for your account
-        </MudText>
+    <MudPaper Elevation="3" Class="p-4 rounded-lg" Style="text-align:center;">
+        <MudIcon Icon="@Icons.Material.Filled.Reviews" Color="Color.Secondary" Size="Size.Large" />
+        <MudText Typo="Typo.h6" Class="mt-2">Нет отзывов</MudText>
+        <MudText Typo="Typo.body2">Вы ещё не оставили отзывов о сотрудниках</MudText>
     </MudPaper>
 }
 
@@ -30,10 +51,15 @@ else
     [Parameter]
     public int id { get; set; }
 
-    private List<Review> ReviewList { get; set; } = new();
+    private List<Review> ReviewList { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
-        ReviewList = await Context.Reviews.Where(r => r.AccountId == id).ToListAsync();
+        ReviewList = await Context.Reviews
+            .Where(r => r.AccountId == id)
+            .Include(r => r.Barber)
+                .ThenInclude(b => b.Account)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync();
     }
 }

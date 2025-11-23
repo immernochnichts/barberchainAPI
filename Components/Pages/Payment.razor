@@ -7,28 +7,42 @@
 @inject BarberchainDbContext Context
 @inject AuthenticationStateProvider AuthStateProvider
 
-@if (!success)
+@if (order != null && order.Status == OrderStatus.Declined)
 {
-    <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6">
+    <MudContainer Style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top:4rem;">
+        <h1>Просматриваемый заказ отклонён</h1>
+        <MudButton Color="Color.Primary" OnClick="GoHome">
+            На главную
+        </MudButton>
+    </MudContainer>
+}
+else
+{
+    @if (!success)
+    {
+        <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6">
 
-        <MudText Typo="Typo.h4" Class="mb-4">Payment</MudText>
+            <MudText Typo="Typo.h4" Class="mb-4">Оплата</MudText>
 
-        <MudPaper Elevation="4" Class="pa-4">
+            <MudPaper Elevation="4" Class="pa-4">
 
-            <!-- Order Summary -->
-            <MudText Typo="Typo.h6">Order #@orderid</MudText>
-            <MudDivider Class="my-2" />
-            <MudStack Spacing="2">
+                <!-- Order Summary -->
+                <MudText Typo="Typo.h6">Заказ #@orderid</MudText>
+                <MudText Typo="Typo.subtitle1" Color="Color.Error">
+                    Оставшееся время до оформления заказа: @TimeRemaining.ToString(@"mm\:ss")
+                </MudText>
+                <MudDivider Class="my-2" />
+                <MudStack Spacing="2">
                     @if (service != null)
                     {
                         <MudText>
-                        Услуги: @string.Join(", ", service.Where(s => s != null).Select(s => s.Name))
+                            Услуги: @string.Join(", ", service.Where(s => s != null).Select(s => s.Name))
                         </MudText>
                         <MudText>
-                        Стоимость: @(
-                        order.Barber.BarberJobs
-                                 .Where(bj => order.OrderJobs.Select(oj => oj.JobId).Contains(bj.JobId)) // only jobs in this order
-                                 .Sum(bj => bj.Price ?? bj.Job.DefaultPrice))
+                            Стоимость: @(
+                     order.Barber.BarberJobs
+                     .Where(bj => order.OrderJobs.Select(oj => oj.JobId).Contains(bj.JobId)) // only jobs in this order
+                     .Sum(bj => bj.Price ?? bj.Job.DefaultPrice))
                         </MudText>
                         <MudText>Назначенное время: @order.AppointedTime</MudText>
                     }
@@ -38,45 +52,50 @@
                             Загрузка...
                         </MudText>
                     }
-            </MudStack>
-
-            <MudDivider Class="my-3" />
-
-            <!-- Payment Details -->
-            <MudForm @ref="_form">
-                <MudTextField Label="Cardholder Name" @bind-Value="model.CardholderName"
-                              Required="true" RequiredError="Cardholder name is required" />
-
-                <MudTextField Label="Card Number" @bind-Value="model.CardNumber"
-                              Required="true" RequiredError="Card number is required"
-                              MaxLength="16" Pattern="^\d{16}$" PatternError="Card number must be 16 digits" />
-
-                <MudStack Direction="Row" Spacing="2">
-                    <MudTextField Label="Expiry MM/YY" @bind-Value="model.Expiry"
-                                  Required="true" RequiredError="Expiry is required"
-                                  Pattern="^(0[1-9]|1[0-2])\/\d{2}$" PatternError="Expiry must be MM/YY" />
-
-                    <MudTextField Label="CVC" @bind-Value="model.CVC"
-                                  Required="true" RequiredError="CVC is required"
-                                  MaxLength="3" Pattern="^\d{3}$" PatternError="CVC must be 3 digits" />
                 </MudStack>
 
                 <MudDivider Class="my-3" />
 
-                <!-- Pay Button -->
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
-                           OnClick="HandlePayClick">
-                    Pay Now
-                </MudButton>
-            </MudForm>
+                <!-- Payment Details -->
+                <MudForm @ref="_form">
+                    <MudTextField Label="Cardholder Name" @bind-Value="model.CardholderName"
+                                  Required="true" RequiredError="Cardholder name is required" />
 
-        </MudPaper>
+                    <MudTextField Label="Card Number" @bind-Value="model.CardNumber"
+                                  Required="true" RequiredError="Card number is required"
+                                  MaxLength="16" Pattern="^\d{16}$" PatternError="Card number must be 16 digits" />
 
-    </MudContainer>
-}
-else
-{
-    <PaymentSuccess orderid="@orderid" Account="@acc"/>
+                    <MudStack Direction="Row" Spacing="2">
+                        <MudTextField Label="Expiry MM/YY" @bind-Value="model.Expiry"
+                                      Required="true" RequiredError="Expiry is required"
+                                      Pattern="^(0[1-9]|1[0-2])\/\d{2}$" PatternError="Expiry must be MM/YY" />
+
+                        <MudTextField Label="CVC" @bind-Value="model.CVC"
+                                      Required="true" RequiredError="CVC is required"
+                                      MaxLength="3" Pattern="^\d{3}$" PatternError="CVC must be 3 digits" />
+                    </MudStack>
+
+                    <MudDivider Class="my-3" />
+
+                    <!-- Pay Button -->
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                               OnClick="HandlePayClick">
+                        Оплатить сейчас
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Style="background-color: gray; margin-top: 1rem;" FullWidth="true"
+                               OnClick="HandlePayOfflineClick">
+                        Оплатить на месте
+                    </MudButton>
+                </MudForm>
+
+            </MudPaper>
+
+        </MudContainer>
+    }
+    else
+    {
+        <PaymentSuccess order="@order" Account="@acc" />
+    }
 }
 
 @code {
@@ -95,7 +114,16 @@ else
 
     private PaymentModel model = new PaymentModel();
 
-    private DateTime AppointmentTime { get; set; } = DateTime.Now.AddDays(1);
+    private DateTime AppointmentTime { get; set; }
+
+    private TimeSpan TimeRemaining;
+    private System.Timers.Timer? countdownTimer;
+
+    private void GoHome()
+    {
+        Navigation.NavigateTo("/");
+        Navigation.Refresh();
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -111,6 +139,7 @@ else
                     .ThenInclude(bj => bj.Job)
             .Where(o => o.Id == orderid)
             .FirstOrDefaultAsync();
+
         if (order is null)
         {
             Navigation.NavigateTo("/");
@@ -118,7 +147,20 @@ else
         }
         else
         {
+            if (order.Status == OrderStatus.Declined)
+            {
+                StateHasChanged();
+                return;
+            }
+
             acc = order?.Account;
+
+            if (order.Status == OrderStatus.Waiting)
+            {
+                success = true;
+                StateHasChanged();
+                return;
+            }
 
             if (acc.Id != int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value))
             {
@@ -128,6 +170,28 @@ else
 
             success = order.IsPaid;
             service = order.OrderJobs.Select(oj => oj.Job);
+
+            order.PendingUntil = order.PendingUntil;
+            order.Status = OrderStatus.Pending;
+
+            countdownTimer = new System.Timers.Timer(1000);
+            countdownTimer.Elapsed += (s, e) =>
+            {
+                TimeRemaining = order.PendingUntil.Value - DateTime.Now;
+                if (TimeRemaining <= TimeSpan.Zero)
+                {
+                    countdownTimer.Stop();
+                    InvokeAsync(() =>
+                    {
+                        Navigation.NavigateTo($"/");
+                        //order.Status = OrderStatus.Declined;
+                    });
+                }
+                InvokeAsync(StateHasChanged);
+            };
+            countdownTimer.Start();
+
+            await Context.SaveChangesAsync();
         }
     }
 
@@ -141,6 +205,7 @@ else
         if (isFormValid)
         {
             order.IsPaid = true;
+            order.Status = OrderStatus.Waiting;
             await Context.SaveChangesAsync();
             success = true;
             StateHasChanged();
@@ -149,6 +214,14 @@ else
         {
             // Form invalid, errors will display automatically
         }
+    }
+
+    private async Task HandlePayOfflineClick()
+    {
+        order.Status = OrderStatus.Waiting;
+        await Context.SaveChangesAsync();
+        success = true;
+        StateHasChanged();
     }
 
     public class PaymentModel

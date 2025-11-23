@@ -6,6 +6,9 @@
 @inject IDialogService DialogService
 @inject BarberchainDbContext Context
 @inject CartService CartService
+@inject ISnackbar Snackbar
+<MudPopoverProvider />
+<MudDialogProvider />
 
 @if (account is null)
 {
@@ -81,6 +84,43 @@ else
             <MudButton @onclick="OpenDialogAsync" Variant="Variant.Filled" Color="Color.Primary">
                 Book
             </MudButton>
+
+            <MudDivider Class="my-4" />
+
+            <MudPaper Elevation="3" Class="p-6 rounded-lg">
+                <MudStack Spacing="3">
+                    <MudText Typo="Typo.h4">Отзывы</MudText>
+                    <MudExpansionPanel Text="Оставить отзыв" @ref="reviewPanel">
+                        <MudPaper Class="pa-4">
+                            <MudForm @ref="_form" @bind-IsValid="isFormValid">
+                                <MudRating SelectedValue="@((int)reviewModel.Score)" MaxValue="5" Size="Size.Large" Required="true" />
+
+                                <MudSelect T="int" Label="Выберите заказ" @bind-Value="reviewModel.OrderId" Required="true">
+                                    @foreach (var o in userOrders)
+                                    {
+                                        <MudSelectItem T="int" Value="@o.Id">@($"Order #{o.Id} - {o.AppointedTime:dd.MM.yyyy}")</MudSelectItem>
+                                    }
+                                </MudSelect>
+
+                                <MudTextField T="string" Label="Ваш отзыв" @bind-Value="reviewModel.Text"
+                                              Lines="4" />
+
+                                <MudStack AlignItems="AlignItems.End" Row="true">
+                                    <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="CancelReview">
+                                        Отмена
+                                    </MudButton>
+                                    <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SubmitReview">
+                                        Отправить
+                                    </MudButton>
+                                </MudStack>
+                            </MudForm>
+                        </MudPaper>
+                    </MudExpansionPanel>
+                    <MudDivider Class="mb-2" />
+
+                    <ReviewsForBarber user="@user" barber="@barber"></ReviewsForBarber>
+                </MudStack>
+            </MudPaper>
         }
     </MudPaper>
 }
@@ -113,7 +153,7 @@ else
     public async Task<BitArray> GetAvailabilityForDay(int barberId, DateTime? day)
     {
         var availability = await Context.BarberScheduleDays
-            .Where(a => a.BarberId == barberId && a.Date == day.Value.ToUniversalTime())
+            .Where(a => a.BarberId == barberId && a.Date == DateOnly.FromDateTime(day.Value))
             .Select(a => a.AtuPattern)
             .FirstOrDefaultAsync();
 
@@ -161,5 +201,76 @@ else
         cart = await CartService.GetCart(); // update the cart
 
         StateHasChanged();
+    }
+
+    private MudForm _form;
+    private MudExpansionPanel reviewPanel;
+    private bool isFormValid;
+
+    private ReviewModel reviewModel = new ReviewModel();
+
+    // List of orders eligible for review (e.g., past orders for this barber by current user)
+    private List<Order> userOrders = new List<Order>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (user is null)
+        {
+            userOrders = null;
+            return;
+        }
+
+        var userId = int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
+
+        userOrders = await Context.Orders
+            .Where(o => o.AccountId == userId && o.BarberId == barber.Id && o.Status == OrderStatus.Complete)
+            .ToListAsync();
+    }
+
+    private async Task SubmitReview()
+    {
+        await _form.Validate();
+        if (!isFormValid)
+            return;
+
+        var review = new Review
+            {
+                Score = reviewModel.Score,
+                Text = reviewModel.Text,
+                OrderId = reviewModel.OrderId,
+                AccountId = userOrders.FirstOrDefault(o => o.Id == reviewModel.OrderId)?.AccountId ?? 0,
+                BarberId = barber.Id,
+                CreatedAt = DateTime.Now
+            };
+
+        barber.ReviewSum += reviewModel.Score;
+        barber.ReviewCount += 1;
+
+        var currentAccountReview = await Context.Reviews
+            .Where(r => r.BarberId == barber.Id && r.AccountId == int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value))
+            .FirstOrDefaultAsync();
+        
+        if (currentAccountReview == null)
+        {
+            Context.Reviews.Add(review);
+            await Context.SaveChangesAsync();
+
+            reviewModel = new ReviewModel();
+            await _form.ResetAsync();
+            Snackbar.Add("Review submitted successfully!", Severity.Success);
+        }
+    }
+
+    private async Task CancelReview()
+    {
+        await _form?.ResetAsync(); // optional: reset form fields
+        reviewPanel?.CollapseAsync();
+    }
+
+    public class ReviewModel
+    {
+        public short Score { get; set; }
+        public int OrderId { get; set; }
+        public string Text { get; set; }
     }
 }
