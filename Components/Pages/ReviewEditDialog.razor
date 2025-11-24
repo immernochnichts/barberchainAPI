@@ -1,0 +1,72 @@
+﻿@namespace barberchainAPI.Components.Pages
+@using MudBlazor;
+@using System.Collections;
+@using barberchainAPI.Functional
+@using System.Security.Claims
+
+<MudDialog MaxWidth="MaxWidth.Small" FullWidth="true">
+    <TitleContent>Редактировать отзыв</TitleContent>
+
+    <DialogContent>
+        <MudStack Spacing="2">
+
+            <!-- Rating -->
+            <MudRating @bind-SelectedValue="_score"
+                       MaxValue="5"
+                       Size="Size.Large"
+                       Color="Color.Warning" />
+
+            <!-- Review Text -->
+            <MudTextField Label="Текст отзыва"
+                          @bind-Value="_text"
+                          Lines="4"
+                          FullWidth="true"
+                          Required="true"
+                          Immediate="true"
+                          Margin="Margin.Dense" />
+
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="Cancel">
+            Cancel
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save">
+            Save
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code
+{
+    [CascadingParameter]
+    IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public Review Review { get; set; } = default!;
+
+    private int _score;
+    private string _text = "";
+
+    protected override void OnInitialized()
+    {
+        _score = Review.Score;
+        _text = Review.Text;
+    }
+
+    private void Save()
+    {
+        // Update review with new values
+        Review.Score = (short)_score;
+        Review.Text = _text;
+
+        MudDialog.Close(Review);
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

@@ -1,0 +1,230 @@
+﻿@namespace barberchainAPI.Components.Pages
+@inject BarberchainDbContext Context
+@using MudBlazor
+@using System.Security.Claims
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+@if (ReviewList?.Count > 0)
+{
+    @foreach (var r in ReviewList)
+    {
+        <MudCard Elevation="2" Class="mb-3">
+            <MudCardContent>
+                <MudStack Spacing="1">
+                    <MudStack AlignItems="AlignItems.Start" Spacing="2">
+                        <MudStack Row="true" AlignItems="AlignItems.Start">
+                            <a href=@($"account/{r.AccountId}")>
+                                <MudAvatar>
+                                    <MudImage Src=@(AccountPics[r.AccountId])></MudImage>
+                                </MudAvatar>
+                            </a>
+                            <MudText>
+                                @r.Account.Lastname @r.Account.Restname
+                            </MudText>
+                        </MudStack>
+                        <MudRating SelectedValue="@((int)r.Score)" MaxValue="5" ReadOnly="true" Size="Size.Medium" />
+                    </MudStack>
+
+                    <MudText Typo="Typo.body2">@r.Text</MudText>
+
+                    @if (r.CreatedAt != null)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            @r.CreatedAt.ToString("dd MMMM yyyy")
+                        </MudText>
+                    }
+                    
+                    @if (user != null && r.AccountId == userId)
+                    {
+                        <MudStack Row="true" Class="ml-auto" Spacing="1">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                           Color="Color.Primary"
+                                           OnClick="@(() => EditReview(r))" />
+
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                           Color="Color.Error"
+                                           OnClick="@(() => DeleteReview(r))" />
+                        </MudStack>
+                    }
+                    else
+                    {
+                        <MudButton Class="ml-auto" Disabled="r.AlreadyReported" Style="width: fit-content;" Color="Color.Error" @onclick="() => ReportReview(r)">
+                            Пожаловаться
+                        </MudButton>
+                    }
+
+                </MudStack>
+            </MudCardContent>
+        </MudCard>
+    }
+}
+else
+{
+    <MudPaper Elevation="3" Class="p-4 rounded-lg" Style="text-align:center;">
+        <MudIcon Icon="@Icons.Material.Filled.Reviews" Color="Color.Secondary" Size="Size.Large" />
+        <MudText Typo="Typo.h6" Class="mt-2">Нет отзывов</MudText>
+    </MudPaper>
+}
+
+@code
+{
+    [Parameter]
+    public Barber? barber { get; set; }
+
+    [Parameter]
+    public ClaimsPrincipal? user { get; set; }
+
+    private int userId;
+
+    private List<Review> ReviewList { get; set; }
+
+    private Dictionary<int, string> AccountPics = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        ReviewList = await Context.Reviews
+            .Where(r => r.BarberId == barber.Id)
+            .Include(r => r.Barber)
+                .ThenInclude(b => b.Account)
+            .Include(r => r.Account)
+            .Include(r => r.Reports)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync();
+
+        var accountIds = ReviewList.Select(r => r.AccountId).Distinct().ToList();
+
+        AccountPics = await Context.Accounts
+            .Where(a => accountIds.Contains(a.Id))
+            .ToDictionaryAsync(a => a.Id, a => AccountPage.GetImageSrc(a.ProfilePic));
+
+
+        foreach (var r in ReviewList)
+        {
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                string reporterId = user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value;
+
+                r.AlreadyReported = r.Reports.Any(rep => rep.ReporterId == reporterId);
+            }
+        }
+
+        if (user != null && user.Claims.Any())
+            userId = int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            foreach (var r in ReviewList)
+            {
+                if (!r.AlreadyReported && !user.Identity.IsAuthenticated)
+                {
+                    string reporterId = await JS.InvokeAsync<string>("guest.getGuestId");
+                    r.AlreadyReported = await JS.InvokeAsync<bool>("guest.hasReported", r.Id);
+                }
+            }
+        }
+    }
+
+    async Task EditReview(Review r)
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Large, FullWidth = true };
+        var params_ = new DialogParameters<ReviewEditDialog> {
+            { x => x.Review, r } };
+
+        var dialog = await DialogService.ShowAsync<ReviewEditDialog>("Редактирование отзыва", params_, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            Context.Reviews.Update(r);
+            await Context.SaveChangesAsync();
+            StateHasChanged();
+            Snackbar.Add("Отзыв обновлён", Severity.Success);
+        }
+    }
+
+    async Task DeleteReview(Review r)
+    {
+        bool? confirmed = await DialogService.ShowMessageBox(
+            "Подтвердите удаление",
+            $"Удалить этот отзыв?",
+            yesText: "Удалить", cancelText: "Отмена");
+
+        if (confirmed == true)
+        {
+            Context.Reviews.Remove(r);
+            await Context.SaveChangesAsync();
+
+            ReviewList.Remove(r);
+
+            StateHasChanged();
+
+            Snackbar.Add("Отзыв удалён", Severity.Info);
+        }
+    }
+
+    public async Task Refresh()
+    {
+        ReviewList = await Context.Reviews
+            .Where(r => r.BarberId == barber.Id)
+            .Include(r => r.Barber)
+                .ThenInclude(b => b.Account)
+            .Include(r => r.Account)
+            .Include(r => r.Reports)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync();
+
+        var accountIds = ReviewList.Select(r => r.AccountId).Distinct().ToList();
+        AccountPics = await Context.Accounts
+            .Where(a => accountIds.Contains(a.Id))
+            .ToDictionaryAsync(a => a.Id, a => AccountPage.GetImageSrc(a.ProfilePic));
+
+        StateHasChanged();
+    }
+
+    private async Task ReportReview(Review r)
+    {
+        string reporterId;
+
+        if (user.Identity?.IsAuthenticated == true && !Context.ReviewReports.Where(rr => rr.ReporterId == userId.ToString()).Any())
+        {
+            reporterId = user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value;
+
+            if (r.Reports.Any(rep => rep.ReporterId == reporterId))
+            {
+                Snackbar.Add("Вы уже пожаловались на данный отзыв", Severity.Warning);
+                r.AlreadyReported = true;
+                return;
+            }
+
+            r.Reports.Add(new ReviewReport
+                {
+                    ReporterId = reporterId,
+                    ReportedAt = DateTime.Now
+                });
+        }
+        else
+        {
+            reporterId = await JS.InvokeAsync<string>("guest.getGuestId");
+            bool alreadyReported = await JS.InvokeAsync<bool>("guest.hasReported", r.Id);
+            if (alreadyReported)
+            {
+                Snackbar.Add("Вы уже пожаловались на этот отзыв", Severity.Warning);
+                r.AlreadyReported = true;
+                return;
+            }
+
+            await JS.InvokeVoidAsync("guest.markReported", r.Id);
+        }
+
+        Context.Reviews.Update(r);
+        await Context.SaveChangesAsync();
+
+        r.AlreadyReported = true;
+        Snackbar.Add("Жалоба успешно создана", Severity.Info);
+    }
+}
