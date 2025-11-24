@@ -14,5 +14,20 @@
             </Authorized>
         </AuthorizeView>
         <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End" />
-        <MudIconButton @onclick="AccessProfile" Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" Edge="Edge.End" />
+        @if (NotificationCount > 0)
+        {
+            <MudBadge Content="@NotificationCount" Color="Color.Secondary" Overlap="true" Class="mx-6 my-4">
+                <MudIconButton @onclick="AccessProfile" Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" Edge="Edge.End" />
+        </MudBadge>
+        }
+        else
+        {
+            <MudIconButton @onclick="AccessProfile" Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" Edge="Edge.End" />
+        }
 </MudAppBar>
+
+@code
+{
+    [Parameter]
+    public int NotificationCount { get; set; }
+}

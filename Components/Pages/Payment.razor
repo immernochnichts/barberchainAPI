@@ -1,4 +1,5 @@
-﻿@page "/payment/{orderid:int}"
+﻿@namespace barberchainAPI.Components.Pages
+@page "/payment/{orderid:int}"
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Components.Authorization
 @using MudBlazor
@@ -208,6 +209,7 @@ else
             order.Status = OrderStatus.Waiting;
             await Context.SaveChangesAsync();
             success = true;
+            await NotifyBarber();
             StateHasChanged();
         }
         else
@@ -221,7 +223,29 @@ else
         order.Status = OrderStatus.Waiting;
         await Context.SaveChangesAsync();
         success = true;
+        await NotifyBarber();
         StateHasChanged();
+    }
+
+    private async Task NotifyBarber()
+    {
+        var not = new Notification
+            {
+                Type = NotificationType.General,
+                Content = $"У вас новый заказ #{order.Id} на {order.AppointedTime}\nУслуги: " + string.Join(", ", Context.OrderJobs.Where(oj => oj.OrderId == order.Id).Select(oj => oj.Job.Name))
+            };
+
+        Context.Notifications.Add(not);
+        await Context.SaveChangesAsync();
+
+        var acc_not = new AccountNotification
+            {
+                AccountId = order.Barber.AccountId.Value,
+                NotificationId = not.Id
+            };
+
+        Context.AccountNotifications.Add(acc_not);
+        await Context.SaveChangesAsync();
     }
 
     public class PaymentModel

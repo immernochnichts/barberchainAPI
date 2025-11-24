@@ -1,4 +1,5 @@
-﻿@page "/account/{id:int}"
+﻿@namespace barberchainAPI.Components.Pages
+@page "/account/{id:int}"
 @rendermode InteractiveServer
 @using System.IO
 @using Microsoft.AspNetCore.Components.Authorization
@@ -7,6 +8,8 @@
 @using System.Security.Claims
 @using barberchainAPI.Functional
 @inject CartService CartService
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
 
 @if (account is null)
 {
@@ -18,6 +21,8 @@ else
 
         @if (IsOwner)
         {
+            <MudButton Color="Color.Error" @onclick="Logout">Выйти из аккаунта</MudButton>
+
             <MudButtonGroup Color="Color.Primary" Variant="Variant.Filled">
                 <MudButton @onclick="() => CurrentComponent = AccountComponent.Profile">Профиль</MudButton>
                 <MudButton @onclick="() => CurrentComponent = AccountComponent.Reviews">Мои отзывы</MudButton>
@@ -120,6 +125,8 @@ else
         if (account is not null && account.Role == AccountRole.Barber)
         {
             barber = await Context.Barbers
+                .Include(b => b.BarberJobs)
+                    .ThenInclude(bj => bj.Job)
                 .Include(b => b.Account)
                 .Include(b => b.Images)
                 .FirstOrDefaultAsync(b => b.AccountId == id);
@@ -166,4 +173,19 @@ else
         string base64 = Convert.ToBase64String(imageBytes);
         return $"data:image/jpeg;base64,{base64}";
     }
+
+    private async Task Logout()
+    {
+        var result = await JS.InvokeAsync<bool>("auth.logout");
+
+        if (result)
+        {
+            Navigation.NavigateTo("/", forceLoad: true);
+        }
+        else
+        {
+            Snackbar.Add("Не удалось выйти из аккаунта", Severity.Error);
+        }
+    }
+
 }

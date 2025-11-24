@@ -1,5 +1,12 @@
-﻿@inject BarberchainDbContext Context
+﻿@namespace barberchainAPI.Components.Pages
+@inject BarberchainDbContext Context
 @using MudBlazor
+@using barberchainAPI.Components.Pages;
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
 
 @if (ReviewList?.Count > 0)
 {
@@ -13,23 +20,29 @@
                 <MudCard Elevation="2" Class="mb-3">
                     <MudCardContent>
                         <MudStack Spacing="1">
-
-                            <!-- Score + Barber -->
                             <MudStack Direction="Row" AlignItems="AlignItems.Start" Spacing="2">
                                 <MudRating SelectedValue="@((int)r.Score)" MaxValue="5" ReadOnly="true" Size="Size.Medium"/>
-                                <a href=@($"account/{r.Barber?.AccountId}")><MudText Style="color: cadetblue" Typo="Typo.subtitle1">@r.Barber?.Account?.Lastname@r.Barber?.Account?.Restname</MudText></a>
+                                <a href=@($"account/{r.Barber?.AccountId}")><MudText Style="color: cadetblue" Typo="Typo.subtitle1">@r.Barber?.Account?.Lastname @r.Barber?.Account?.Restname</MudText></a>
                             </MudStack>
 
-                            <!-- Review text -->
                             <MudText Typo="Typo.body2">@r.Text</MudText>
 
-                            <!-- Optional date -->
                             @if (r.CreatedAt != null)
                             {
                                 <MudText Typo="Typo.caption" Color="Color.Secondary">
                                     @r.CreatedAt.ToString("dd MMMM yyyy")
                                 </MudText>
                             }
+
+                            <MudStack Row="true" Class="ml-auto" Spacing="1">
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                               Color="Color.Primary"
+                                               OnClick="@(() => EditReview(r))" />
+
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                               Color="Color.Error"
+                                               OnClick="@(() => DeleteReview(r))" />
+                            </MudStack>
 
                         </MudStack>
                     </MudCardContent>
@@ -61,5 +74,41 @@ else
                 .ThenInclude(b => b.Account)
             .OrderByDescending(r => r.CreatedAt)
             .ToListAsync();
+    }
+
+    async Task EditReview(Review r)
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Large, FullWidth = true };
+        var params_ = new DialogParameters<ReviewEditDialog> {
+            { x => x.Review, r } };
+
+        var dialog = await DialogService.ShowAsync<ReviewEditDialog>("Редактирование отзыва", params_, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            Context.Reviews.Update(r);
+            await Context.SaveChangesAsync();
+            Snackbar.Add("Отзыв обновлён", Severity.Success);
+        }
+    }
+
+    async Task DeleteReview(Review r)
+    {
+        bool? confirmed = await DialogService.ShowMessageBox(
+            "Подтвердите удаление",
+            $"Удалить этот отзыв?",
+            yesText: "Удалить", cancelText: "Отмена");
+
+        if (confirmed == true)
+        {
+            Context.Reviews.Remove(r);
+            await Context.SaveChangesAsync();
+
+            ReviewList.Remove(r);
+            StateHasChanged();
+
+            Snackbar.Add("Отзыв удалён", Severity.Info);
+        }
     }
 }

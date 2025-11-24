@@ -1,4 +1,5 @@
-﻿@using MudBlazor;
+﻿@namespace barberchainAPI.Components.Pages
+@using MudBlazor;
 @using System.Collections;
 @using barberchainAPI.Functional
 @using System.Security.Claims
@@ -64,6 +65,7 @@
     }
 
     .job-cart {
+        position:fixed;
         margin-top: 1rem;
         max-width: 800px;
         display: flex;
@@ -193,7 +195,10 @@
     <DialogActions>
         <MudText Style="color: crimson">@errorMsg</MudText>
         <MudButton OnClick="Cancel">Отмена</MudButton>
-        <MudButton Color="Color.Primary" OnClick="Submit">Перейти к оплате</MudButton>
+        @if (user != null && int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value) != Barber.AccountId)
+        {
+            <MudButton Color="Color.Primary" OnClick="Submit">Перейти к оплате</MudButton>
+        }
     </DialogActions>
 </MudDialog>
 

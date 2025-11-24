@@ -5,11 +5,12 @@
 @inherits LayoutComponentBase
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
+@inject BarberchainDbContext Context
 <MudThemeProvider />
 
 
 <MudLayout>
-    <NavMenu></NavMenu>
+    <NavMenu NotificationCount="@notificationCount"></NavMenu>
     <MudMainContent>
         @Body
     </MudMainContent>
@@ -18,10 +19,18 @@
 @code {
     protected ClaimsPrincipal? User { get; set; }
 
+    private int notificationCount;
+
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         User = authState.User;
+
+        if (User != null && User.Identity.IsAuthenticated)
+        {
+            var userId = int.Parse(User.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
+            notificationCount = Context.AccountNotifications.Where(an => an.AccountId == userId && !an.IsViewed).Count();
+        }
     }
 
     protected void AccessProfile()
@@ -39,6 +48,11 @@
                 Navigation.NavigateTo($"/account/{userId}");
                 Navigation.Refresh();
             }
+        }
+        else
+        {
+            Navigation.NavigateTo($"/auth");
+            Navigation.Refresh();
         }
     }
 }

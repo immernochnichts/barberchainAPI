@@ -3,12 +3,15 @@
 @using System.Collections
 @using System.Security.Claims
 @using barberchainAPI.Functional;
+@using Microsoft.AspNetCore.Components.Authorization
 @inject IDialogService DialogService
 @inject BarberchainDbContext Context
 @inject CartService CartService
 @inject ISnackbar Snackbar
+@inject IJSRuntime JS
 <MudPopoverProvider />
 <MudDialogProvider />
+<MudSnackbarProvider />
 
 @if (account is null)
 {
@@ -20,14 +23,98 @@ else
 {
     <MudPaper Elevation="3" Class="p-4 rounded-lg">
 
-        <MudContainer Style="display:flex; padding-top:1rem;">
-            <MudImage Src="@AccountPage.GetImageSrc(account.ProfilePic)" Class="rounded-lg" Elevation="25" ObjectFit="ObjectFit.Cover" Style="max-width:50%;" />
+        <MudContainer Style="display:flex; padding-top:1rem; gap:1.5rem;">
+
+        <!-- Profile picture -->
+        <div style="position:relative;">
+            <MudImage Src="@AccountPage.GetImageSrc(IsEditing ? EditableAccount.ProfilePic : account.ProfilePic)"
+                      Class="rounded-lg"
+                      Elevation="25"
+                      ObjectFit="ObjectFit.Cover"
+                      Style="max-width:200px; margin-bottom:1rem;" />
+
+            @if (IsEditing)
+            {
+                <InputFile OnChange="OnProfilePicChanged" accept="image/*" style="position:absolute; bottom:10px; left:10px; background:white;" />
+            }
+        </div>
+
+        <!-- Account info -->
+        <MudContainer Style="display:flex; flex-direction:column; align-items:flex-start;">
+
+            @if (!IsEditing)
+            {
+                <MudText Typo="Typo.h5">@account.Lastname @account.Restname</MudText>
+                <MudText Typo="Typo.h6">обо мне:</MudText>
+                <MudText Typo="Typo.subtitle1" Class="text-secondary">@account.Bio</MudText>
+                <MudText Typo="Typo.h6">день рождения: @account.BirthDate</MudText>
+
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3"
+                           OnClick="StartEditing">
+                    Редактировать
+                </MudButton>
+            }
+            else
+            {
+                <MudTextField @bind-Value="EditableAccount.Lastname" Label="Фамилия" />
+                <MudTextField @bind-Value="EditableAccount.Restname" Label="Имя" />
+                <MudTextField @bind-Value="EditableAccount.Bio" Label="О себе" Lines="3" />
+                <MudDatePicker @bind-Date="BirthDateEdit" Label="День рождения" />
+
+                <MudStack Direction="Row" Spacing="2" Class="mt-3">
+
+                    <MudButton Variant="Variant.Filled" Color="Color.Success"
+                               OnClick="SaveEditing">
+                        Сохранить
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Outlined" Color="Color.Error"
+                               OnClick="CancelEditing">
+                        Отмена
+                    </MudButton>
+
+                </MudStack>
+            }
+
+            @if (user != null && user.Claims.Any() && account.Id == int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value))
+            {
+                <MudText Typo="Typo.subtitle2" Align="Align.Start">электронная почта (видна только вам): @account.Email</MudText>
+            }
+            @if (account.Role == AccountRole.Barber)
+            {
+                <MudText Typo="Typo.h6" Align="Align.Center">что я умею:</MudText>
+                <MudText Typo="Typo.body1" Align="Align.Center" Class="text-secondary">
+                    @if (jobs is not null && cart != null)
+                    {
+                        <MudList T="string">
+                            @foreach (var job in jobs)
+                            {
+                                <MudContainer Class="d-flex" Style="align-items:center">
+                                    <MudListItem Text=@job.Job.Name SecondaryText=@(job.Price is null ? job.Job.DefaultPrice.ToString() : job.Price.ToString()) />
+                                    <MudButton @onclick="async () => { await OnServiceClicked(job.Job); }" Disabled="false" Style=@($"background:{(cart.JobSet.Contains(job.Job) ? "gray" : job.Job.ColorCSS)}; height:min-content;")>@(cart.JobSet.Contains(job.Job) ? "Добавлено" : "")</MudButton>
+                                </MudContainer>
+                            }
+                        </MudList>
+                    }
+                </MudText>
+            }
+        </MudContainer>
+
+    </MudContainer>
+
+        <!--<MudContainer Style="display:flex; padding-top:1rem;">
+            <MudImage Src="@AccountPage.GetImageSrc(account.ProfilePic)" Class="rounded-lg" Elevation="25" ObjectFit="ObjectFit.Cover" Style="max-width:50%; margin-bottom:1rem;" />
             <MudContainer Style="display:flex; flex-direction:column; align-items:flex-start;">
                 <MudText Typo="Typo.h5" Align="Align.Center">@account.Lastname @account.Restname</MudText>
                 <MudText Typo="Typo.h6" Align="Align.Center">обо мне:</MudText>
-                <MudText Typo="Typo.body1" Align="Align.Center" Class="text-secondary">
+                <MudText Typo="Typo.subtitle1" Align="Align.Center" Class="text-secondary">
                     @account.Bio
                 </MudText>
+                <MudText Typo="Typo.h6" Align="Align.Center">день рождения: @account.BirthDate</MudText>
+                @if (user != null && user.Claims.Any() && account.Id == int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value))
+                {
+                    <MudText Typo="Typo.subtitle2" Align="Align.Start">электронная почта (видна только вам): @account.Email</MudText>                    
+                }
                 @if (account.Role == AccountRole.Barber)
                 {
                     <MudText Typo="Typo.h6" Align="Align.Center">что я умею:</MudText>
@@ -47,7 +134,7 @@ else
                     </MudText>
                 }
             </MudContainer>
-        </MudContainer>
+        </MudContainer> -->
 
         @if (account.Role == AccountRole.Barber)
         {
@@ -85,40 +172,48 @@ else
                 Book
             </MudButton>
 
+
             <MudDivider Class="my-4" />
 
             <MudPaper Elevation="3" Class="p-6 rounded-lg">
                 <MudStack Spacing="3">
                     <MudText Typo="Typo.h4">Отзывы</MudText>
-                    <MudExpansionPanel Text="Оставить отзыв" @ref="reviewPanel">
-                        <MudPaper Class="pa-4">
-                            <MudForm @ref="_form" @bind-IsValid="isFormValid">
-                                <MudRating SelectedValue="@((int)reviewModel.Score)" MaxValue="5" Size="Size.Large" Required="true" />
+                    <AuthorizeView>
+                        <MudExpansionPanel Text="Оставить отзыв" @ref="reviewPanel">
+                            <MudPaper Class="pa-4">
+                                <MudForm @ref="_form" @bind-IsValid="isFormValid">
+                                    <MudRating @bind-SelectedValue="reviewModel.Score" MaxValue="5" Size="Size.Large" Required="true" />
 
-                                <MudSelect T="int" Label="Выберите заказ" @bind-Value="reviewModel.OrderId" Required="true">
-                                    @foreach (var o in userOrders)
-                                    {
-                                        <MudSelectItem T="int" Value="@o.Id">@($"Order #{o.Id} - {o.AppointedTime:dd.MM.yyyy}")</MudSelectItem>
-                                    }
-                                </MudSelect>
+                                    <MudText Typo="Typo.subtitle2">Если вы хотите оставить отзыв по определенному заказу, пожалуйста, укажите его здесь</MudText>
+                                    <MudSelect T="int" @bind-Value="reviewModel.OrderId">
+                                        @if (userOrders != null)
+                                        {
+                                            @foreach (var o in userOrders)
+                                            {
+                                                <MudSelectItem T="int" Value="@o.Id">@($"Заказ #{o.Id} - {o.AppointedTime:dd.MM.yyyy}")</MudSelectItem>
+                                            }
+                                        }
+                                    </MudSelect>
 
-                                <MudTextField T="string" Label="Ваш отзыв" @bind-Value="reviewModel.Text"
-                                              Lines="4" />
+                                    <MudTextField T="string" Label="Ваш отзыв" @bind-Value="reviewModel.Text"
+                                                  Lines="4" />
 
-                                <MudStack AlignItems="AlignItems.End" Row="true">
-                                    <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="CancelReview">
-                                        Отмена
-                                    </MudButton>
-                                    <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SubmitReview">
-                                        Отправить
-                                    </MudButton>
-                                </MudStack>
-                            </MudForm>
-                        </MudPaper>
-                    </MudExpansionPanel>
+                                    <MudStack Class="mt-4" AlignItems="AlignItems.End" Row="true">
+                                        <MudButton Style="color: gray;" Variant="Variant.Filled" OnClick="CancelReview">
+                                            Отмена
+                                        </MudButton>
+                                        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SubmitReview">
+                                            Отправить
+                                        </MudButton>
+                                    </MudStack>
+                                </MudForm>
+                            </MudPaper>
+                        </MudExpansionPanel>
+                    </AuthorizeView>
+
                     <MudDivider Class="mb-2" />
 
-                    <ReviewsForBarber user="@user" barber="@barber"></ReviewsForBarber>
+                    <ReviewsForBarber user="@user" barber="@barber" @ref="reviewsForBarber"></ReviewsForBarber>
                 </MudStack>
             </MudPaper>
         }
@@ -138,6 +233,62 @@ else
     private Cart? cart;
 
     private bool _loaded = false;
+
+    private bool IsEditing = false;
+
+    private Account EditableAccount = new(); // copy of account data for editing
+
+    private DateTime? BirthDateEdit
+    {
+        get => EditableAccount.BirthDate?.ToDateTime(TimeOnly.MinValue);
+        set => EditableAccount.BirthDate = DateOnly.FromDateTime(value.Value);
+    }
+
+
+    void StartEditing()
+    {
+        EditableAccount = new Account
+        {
+            Id = account.Id,
+            Lastname = account.Lastname,
+            Restname = account.Restname,
+            Bio = account.Bio,
+            BirthDate = account.BirthDate,
+            ProfilePic = account.ProfilePic
+        };
+
+        IsEditing = true;
+    }
+
+    void CancelEditing()
+    {
+        IsEditing = false;
+    }
+
+    async Task SaveEditing()
+    {
+        // copy EditedAccount back to account
+        account.Lastname = EditableAccount.Lastname;
+        account.Restname = EditableAccount.Restname;
+        account.Bio = EditableAccount.Bio;
+        account.BirthDate = EditableAccount.BirthDate;
+        account.ProfilePic = EditableAccount.ProfilePic;
+
+        Context.Accounts.Update(account);
+        await Context.SaveChangesAsync();
+
+        Snackbar.Add("Изменения сохранены", Severity.Success);
+        IsEditing = false;
+    }
+
+    private async Task OnProfilePicChanged(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        using var ms = new MemoryStream();
+        await file.OpenReadStream(1024 * 1024 * 3).CopyToAsync(ms);
+
+        EditableAccount.ProfilePic = ms.ToArray();
+    }
 
     //Barber variables
     [Parameter]
@@ -177,6 +328,7 @@ else
     protected async Task OpenDialogAsync()
     {
         AtuPattern = await GetAvailabilityForDay(barber.Id, _selectedDate);
+
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.ExtraExtraLarge, FullWidth = true };
         var params_ = new DialogParameters<BarberPageDialog> {
             { x => x.AtuPattern, AtuPattern }, 
@@ -209,12 +361,13 @@ else
 
     private ReviewModel reviewModel = new ReviewModel();
 
-    // List of orders eligible for review (e.g., past orders for this barber by current user)
     private List<Order> userOrders = new List<Order>();
+
+    private ReviewsForBarber reviewsForBarber;
 
     protected override async Task OnInitializedAsync()
     {
-        if (user is null)
+        if (user is null || !user.Claims.Any())
         {
             userOrders = null;
             return;
@@ -222,9 +375,12 @@ else
 
         var userId = int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
 
-        userOrders = await Context.Orders
-            .Where(o => o.AccountId == userId && o.BarberId == barber.Id && o.Status == OrderStatus.Complete)
-            .ToListAsync();
+        if (barber != null)
+        {
+            userOrders = await Context.Orders
+                .Where(o => o.AccountId == userId && o.BarberId == barber.Id && o.Status == OrderStatus.Complete)
+                .ToListAsync();
+        }
     }
 
     private async Task SubmitReview()
@@ -233,43 +389,77 @@ else
         if (!isFormValid)
             return;
 
-        var review = new Review
-            {
-                Score = reviewModel.Score,
-                Text = reviewModel.Text,
-                OrderId = reviewModel.OrderId,
-                AccountId = userOrders.FirstOrDefault(o => o.Id == reviewModel.OrderId)?.AccountId ?? 0,
-                BarberId = barber.Id,
-                CreatedAt = DateTime.Now
-            };
+        if (!await Context.Orders.AnyAsync(o => o.BarberId == barber.Id && o.Status == OrderStatus.Complete))
+        {
+            Snackbar.Add("Вы не можете оставить отзыв о сотруднике, если у вас нет с ним ни единого выполненного заказа", Severity.Info);
+            return;
+        }
 
-        barber.ReviewSum += reviewModel.Score;
-        barber.ReviewCount += 1;
+        var userId = int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
 
         var currentAccountReview = await Context.Reviews
-            .Where(r => r.BarberId == barber.Id && r.AccountId == int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value))
+            .Where(r => r.BarberId == barber.Id && r.AccountId == userId)
             .FirstOrDefaultAsync();
-        
+
         if (currentAccountReview == null)
         {
+            barber.ReviewSum += reviewModel.Score;
+            barber.ReviewCount += 1;
+
+            var review = new Review
+                {
+                    Score = (short)reviewModel.Score,
+                    Text = reviewModel.Text,
+                    OrderId = reviewModel.OrderId == 0 ? null : reviewModel.OrderId,
+                    AccountId = userId,
+                    BarberId = barber.Id,
+                    CreatedAt = DateTime.Now
+                };
+
+            // adding review to the db
             Context.Reviews.Add(review);
+            await Context.SaveChangesAsync();
+
+            // sending notification to the barber
+            var not = new Notification
+            {
+                Type = NotificationType.General,
+                Content = "Пользователь оставил новый отзыв о Вас:\n\n" + review.Text
+            };
+
+            Context.Notifications.Add(not);
+            await Context.SaveChangesAsync();
+
+            var acc_not = new AccountNotification
+            {
+                AccountId = barber.AccountId.Value,
+                NotificationId = not.Id
+            };
+
+            Context.AccountNotifications.Add(acc_not);
             await Context.SaveChangesAsync();
 
             reviewModel = new ReviewModel();
             await _form.ResetAsync();
-            Snackbar.Add("Review submitted successfully!", Severity.Success);
+            await reviewsForBarber.Refresh();
+            Snackbar.Add("Отзыв успешно отправлен", Severity.Success);
+
+        }
+        else
+        {
+            Snackbar.Add("Вы уже оставили отзыв об этом сотруднике", Severity.Info);
         }
     }
 
     private async Task CancelReview()
     {
-        await _form?.ResetAsync(); // optional: reset form fields
+        await _form?.ResetAsync(); 
         reviewPanel?.CollapseAsync();
     }
 
     public class ReviewModel
     {
-        public short Score { get; set; }
+        public int Score { get; set; }
         public int OrderId { get; set; }
         public string Text { get; set; }
     }

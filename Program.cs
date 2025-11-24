@@ -26,7 +26,7 @@ namespace barberchainAPI
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
 
-            builder.Services.AddDbContext<BarberchainDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"),
+            builder.Services.AddDbContext<BarberchainDbContext>(options => options.EnableSensitiveDataLogging().UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"),
                 o =>
                 {
                     o.MapEnum<AccountRole>("account_role");
@@ -54,6 +54,7 @@ namespace barberchainAPI
                 });
             builder.Services.AddAuthorization();
             builder.Services.AddCascadingAuthenticationState();
+            builder.Services.AddHttpContextAccessor();
 
             builder.Services.AddScoped<LocalStorageService>();
             builder.Services.AddScoped<CartService>();

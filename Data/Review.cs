@@ -22,11 +22,11 @@ namespace barberchainAPI.Data
         public Barber Barber { get; set; }
 
         [Column("text")]
-        public string Text { get; set; }
+        public string? Text { get; set; }
 
         [Required]
         [Column("score")]
-        public short? Score { get; set; }
+        public short Score { get; set; }
 
         [Required]
         [Column("is_deleted")]
@@ -40,6 +40,13 @@ namespace barberchainAPI.Data
         [Required]
         [Column("created_at")]
         public DateTime CreatedAt { get; set; }
+
+
+        [NotMapped]
+        public bool AlreadyReported { get; set; } = false;
+
+
+        public ICollection<ReviewReport> Reports { get; set; }
 
     }
 }

@@ -15,6 +15,8 @@ namespace barberchainAPI.Data
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderJob> OrderJobs { get; set; }
         public DbSet<Review> Reviews { get; set; }
+
+        public DbSet<ReviewReport> ReviewReports { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<AccountNotification> AccountNotifications { get; set; }
         public DbSet<BarberJob> BarberJobs { get; set; }
@@ -43,6 +45,7 @@ namespace barberchainAPI.Data
             modelBuilder.Entity<Review>().ToTable("review");
             modelBuilder.Entity<Order>().ToTable("order_");
             modelBuilder.Entity<OrderJob>().ToTable("order_job");
+            modelBuilder.Entity<ReviewReport>().ToTable("review_report");
 
             // Composite key for BarberJob
             modelBuilder.Entity<BarberJob>()
@@ -91,6 +94,41 @@ namespace barberchainAPI.Data
                     );
             });
 
+            modelBuilder.Entity<Review>(entity => entity
+                .Property(r => r.CreatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasConversion(
+                        v => v,
+                        v => DateTime.SpecifyKind(v, DateTimeKind.Local)
+                    ));
+
+            modelBuilder.Entity<ReviewReport>(entity => entity
+                .Property(r => r.ReportedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasConversion(
+                        v => v,
+                        v => DateTime.SpecifyKind(v, DateTimeKind.Local)
+                    ));
+
+            modelBuilder.Entity<Notification>(entity => entity
+                .Property(r => r.CreatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasConversion(
+                        v => v,
+                        v => DateTime.SpecifyKind(v, DateTimeKind.Local)
+                    ));
+
+            modelBuilder.Entity<Account>(entity =>
+            {
+                entity.Property(e => e.BirthDate)
+                    .HasColumnType("timestamp without time zone")
+                    .HasConversion(
+                        v => v,
+                        v => v.Value.ToDateTime(TimeOnly.MinValue)
+                    );
+            });
+
+
             modelBuilder.Entity<Complaint>()
                 .Property(c => c.Status)
                 .HasColumnType("complaint_status");
@@ -110,7 +148,6 @@ namespace barberchainAPI.Data
                 .Property(e => e.Restname)
                 .HasMaxLength(256)
                 .IsRequired(false); // explicitly nullable
-
         }
     }
 }

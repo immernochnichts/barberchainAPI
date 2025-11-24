@@ -25,7 +25,8 @@ namespace barberchainAPI.Data
         [Column("content")]
         public string Content { get; set; }
 
+        [Required]
         [Column("created_at")]
-        public DateTime? CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
     }
 }
