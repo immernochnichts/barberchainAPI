@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System;
+using System.ComponentModel;
 
 namespace barberchainAPI.Data
 {
@@ -46,6 +47,7 @@ namespace barberchainAPI.Data
             modelBuilder.Entity<Order>().ToTable("order_");
             modelBuilder.Entity<OrderJob>().ToTable("order_job");
             modelBuilder.Entity<ReviewReport>().ToTable("review_report");
+            modelBuilder.Entity<ScheduleRequest>().ToTable("schedule_request");
 
             // Composite key for BarberJob
             modelBuilder.Entity<BarberJob>()
@@ -119,15 +121,26 @@ namespace barberchainAPI.Data
                     ));
 
             modelBuilder.Entity<Account>(entity =>
-            {
                 entity.Property(e => e.BirthDate)
+                    .HasColumnType("date"));
+
+            modelBuilder.Entity<Account>(entity =>
+                entity.Property(e => e.RegTime)
+                .HasColumnType("timestamp without time zone")
+                .HasConversion(
+                        v => v,
+                        v => DateTime.SpecifyKind(v, DateTimeKind.Local))
+                );
+
+            modelBuilder.Entity<ScheduleRequest>(entity =>
+            {
+                entity.Property(sr => sr.CreatedAt)
                     .HasColumnType("timestamp without time zone")
                     .HasConversion(
                         v => v,
-                        v => v.Value.ToDateTime(TimeOnly.MinValue)
+                        v => DateTime.SpecifyKind(v, DateTimeKind.Local)
                     );
             });
-
 
             modelBuilder.Entity<Complaint>()
                 .Property(c => c.Status)

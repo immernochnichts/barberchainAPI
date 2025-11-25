@@ -123,11 +123,51 @@ else
                 Navigation.NavigateTo("/");
             }
 
-            oh = Barbershop.OpeningTime.Hours;
-            om = Barbershop.OpeningTime.Minutes;
+            int openingBit = -1;
+            for (int i = 0; i < 96; i++)
+            {
+                if (Barbershop.DefaultSchedule[i]) // BitArray or bool[]
+                {
+                    openingBit = i;
+                    break;
+                }
+            }
 
-            ch = Barbershop.ClosingTime.Hours;
-            cm = Barbershop.ClosingTime.Minutes;
+            if (openingBit == -1)
+            {
+                // No schedule available
+                oh = 0;
+                om = 0;
+            }
+            else
+            {
+                oh = openingBit / 4;          // hour
+                om = (openingBit % 4) * 15;   // minute
+            }
+
+            int closingBit = -1;
+            for (int i = 95; i >= 0; i--)
+            {
+                if (Barbershop.DefaultSchedule[i])
+                {
+                    closingBit = i;
+                    break;
+                }
+            }
+
+            if (closingBit == -1)
+            {
+                // No schedule available
+                ch = 0;
+                cm = 0;
+            }
+            else
+            {
+                // Closing time is the END of last available interval
+                ch = (closingBit + 1) / 4;
+                cm = ((closingBit + 1) % 4) * 15;
+            }
+
 
             var jobIdSet = new HashSet<int>();
             foreach (var b in Barbershop.Barbers)

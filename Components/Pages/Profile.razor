@@ -31,7 +31,7 @@ else
                       Class="rounded-lg"
                       Elevation="25"
                       ObjectFit="ObjectFit.Cover"
-                      Style="max-width:200px; margin-bottom:1rem;" />
+                      Style="max-width:350px; max-height:400px; margin-bottom:1rem;" />
 
             @if (IsEditing)
             {
@@ -48,20 +48,24 @@ else
                 <MudText Typo="Typo.h6">обо мне:</MudText>
                 <MudText Typo="Typo.subtitle1" Class="text-secondary">@account.Bio</MudText>
                 <MudText Typo="Typo.h6">день рождения: @account.BirthDate</MudText>
+                @if (user != null && user.Identity.IsAuthenticated && account.Id == int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value))
+                {
+                    <MudText Typo="Typo.subtitle2" Align="Align.Start">электронная почта (видна только вам): @account.Email</MudText>
+                }
 
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3"
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Style="margin-bottom: 1rem;" Class="ml-auto mt-auto"
                            OnClick="StartEditing">
                     Редактировать
                 </MudButton>
             }
             else
             {
-                <MudTextField @bind-Value="EditableAccount.Lastname" Label="Фамилия" />
-                <MudTextField @bind-Value="EditableAccount.Restname" Label="Имя" />
+                <MudTextField @bind-Value="EditableAccount.Lastname" Label="Фамилия (или username)" />
+                <MudTextField @bind-Value="EditableAccount.Restname" Label="Имя отчество" />
                 <MudTextField @bind-Value="EditableAccount.Bio" Label="О себе" Lines="3" />
                 <MudDatePicker @bind-Date="BirthDateEdit" Label="День рождения" />
 
-                <MudStack Direction="Row" Spacing="2" Class="mt-3">
+                <MudStack Direction="Row" Spacing="2" Class="mt-3 mb-3">
 
                     <MudButton Variant="Variant.Filled" Color="Color.Success"
                                OnClick="SaveEditing">
@@ -76,10 +80,6 @@ else
                 </MudStack>
             }
 
-            @if (user != null && user.Claims.Any() && account.Id == int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value))
-            {
-                <MudText Typo="Typo.subtitle2" Align="Align.Start">электронная почта (видна только вам): @account.Email</MudText>
-            }
             @if (account.Role == AccountRole.Barber)
             {
                 <MudText Typo="Typo.h6" Align="Align.Center">что я умею:</MudText>
@@ -389,19 +389,15 @@ else
         if (!isFormValid)
             return;
 
-        if (!await Context.Orders.AnyAsync(o => o.BarberId == barber.Id && o.Status == OrderStatus.Complete))
+        var userId = int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
+
+        if (!await Context.Orders.AnyAsync(o => o.BarberId == barber.Id && o.AccountId == userId && o.Status == OrderStatus.Complete))
         {
             Snackbar.Add("Вы не можете оставить отзыв о сотруднике, если у вас нет с ним ни единого выполненного заказа", Severity.Info);
             return;
         }
 
-        var userId = int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
-
-        var currentAccountReview = await Context.Reviews
-            .Where(r => r.BarberId == barber.Id && r.AccountId == userId)
-            .FirstOrDefaultAsync();
-
-        if (currentAccountReview == null)
+        if (await Context.Reviews.AnyAsync(r => r.BarberId == barber.Id && r.AccountId == userId))
         {
             barber.ReviewSum += reviewModel.Score;
             barber.ReviewCount += 1;

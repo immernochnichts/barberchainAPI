@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -28,12 +29,8 @@ namespace barberchainAPI.Data
         public string Phone { get; set; }
 
         [Required]
-        [Column("opening_time")]
-        public TimeSpan OpeningTime { get; set; } = new TimeSpan(9, 0, 0);
-
-        [Required]
-        [Column("closing_time")]
-        public TimeSpan ClosingTime { get; set; } = new TimeSpan(21, 0, 0);
+        [Column("default_schedule")]
+        public BitArray DefaultSchedule { get; set; }
 
         [Required]
         [Column("fk_manager_account")]

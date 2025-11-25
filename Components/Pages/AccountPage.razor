@@ -10,6 +10,7 @@
 @inject CartService CartService
 @inject IJSRuntime JS
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 @if (account is null)
 {
@@ -30,6 +31,21 @@ else
                 <MudButton @onclick="() => CurrentComponent = AccountComponent.OrderHistory">История заказов</MudButton>
                 <MudButton @onclick="() => CurrentComponent = AccountComponent.Cart">Корзина</MudButton>
             </MudButtonGroup>
+
+            if (account.Role == AccountRole.Barber)
+            {
+                <MudButtonGroup Style="background: darkblue;" Variant="Variant.Filled">
+                    <MudButton Style="color:white;" @onclick="OpenAdjustmentDialog">Расписание</MudButton>
+                </MudButtonGroup>
+            }
+
+            if (account.Role == AccountRole.Manager)
+            {
+                <MudButtonGroup Style="background: deeppink;" Variant="Variant.Filled">
+                    <MudButton Style="color:white;" @onclick="() => CurrentComponent = AccountComponent.UserList">Список пользователей</MudButton>
+                    <MudButton Style="color:white;" @onclick="() => CurrentComponent = AccountComponent.ScheduleRequests">Заявки на изменение расписания</MudButton>
+                </MudButtonGroup>
+            }
         }
         
         @switch (CurrentComponent)
@@ -59,6 +75,16 @@ else
                 <CartPage></CartPage>
                 break;
             }
+            case AccountComponent.UserList:
+            {
+                <UserList></UserList>
+                break;
+            }
+            case AccountComponent.ScheduleRequests:
+            {
+                <ScheduleRequests User="@user"></ScheduleRequests>
+                break;
+            }
         }
 
     </MudContainer>
@@ -72,7 +98,9 @@ else
         Reviews,
         Notifications,
         OrderHistory,
-        Cart
+        Cart,
+        UserList,
+        ScheduleRequests
     }
 
     [Inject]
@@ -111,10 +139,6 @@ else
 
         if (user.Identity?.IsAuthenticated == true)
         {
-            Console.WriteLine("=== CLAIMS ===");
-            foreach (var c in user.Claims)
-                Console.WriteLine($"{c.Type} = {c.Value}");
-
             var userIdClaim = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (int.TryParse(userIdClaim, out var userId))
             {
@@ -129,6 +153,7 @@ else
                     .ThenInclude(bj => bj.Job)
                 .Include(b => b.Account)
                 .Include(b => b.Images)
+                .Include(b => b.Bshop)
                 .FirstOrDefaultAsync(b => b.AccountId == id);
 
             jobs = await Context.BarberJobs
@@ -176,16 +201,35 @@ else
 
     private async Task Logout()
     {
-        var result = await JS.InvokeAsync<bool>("auth.logout");
+        bool? confirmed = await DialogService.ShowMessageBox(
+            "Подтвердите выход",
+            $"Выйти из аккаунта?",
+            yesText: "Выйти", cancelText: "Отмена");
 
-        if (result)
+        if (confirmed == true)
         {
-            Navigation.NavigateTo("/", forceLoad: true);
-        }
-        else
-        {
-            Snackbar.Add("Не удалось выйти из аккаунта", Severity.Error);
+            var result = await JS.InvokeAsync<bool>("auth.logout");
+
+            if (result)
+            {
+                Navigation.NavigateTo("/", forceLoad: true);
+            }
+            else
+            {
+                Snackbar.Add("Не удалось выйти из аккаунта", Severity.Error);
+            }
         }
     }
 
+    private async Task OpenAdjustmentDialog()
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.ExtraLarge, FullWidth = true };
+        var parameters = new DialogParameters<CreateScheduleDialog>
+        {
+            { x => x.Barber, barber },
+            { x => x.User, user }
+        };
+
+        await DialogService.ShowAsync<CreateScheduleDialog>("Request Schedule Adjustment", parameters, options);
+    }
 }

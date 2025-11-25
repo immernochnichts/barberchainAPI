@@ -26,6 +26,7 @@ namespace barberchainAPI.Data
         public string? Restname { get; set; }
 
         [MaxLength(256)]
+        [Required]
         [Column("email")]
         public string Email { get; set; }
 
