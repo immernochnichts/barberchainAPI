@@ -1,0 +1,121 @@
+﻿@using barberchainAPI.Functional
+@inject BarberchainDbContext Context
+
+<MudPopoverProvider />
+
+<MudContainer Style="max-width:900px; width:max-content;" Class="mx-auto mt-4">
+    <MudPaper Class="pa-4">
+
+        <MudText Typo="Typo.h5" Class="mb-4">User Management</MudText>
+
+        <!-- Search + Filtering -->
+        <MudStack Row="true" Spacing="2" Class="mb">
+            <MudTextField   @bind-Value="searchString"
+                            Placeholder="Search users..."
+                            Adornment="Adornment.Start"
+                            AdornmentIcon="@Icons.Material.Filled.Search"
+                            OnKeyDown="OnSearchKeyDown"
+                            Immediate="true"
+                            Class="flex-grow-1 mt-4" />
+
+            <MudSelect T="AccountRole?" @bind-Value="selectedRole" @bind-Value:event="onchange" Label="Role" Clearable="true" Dense="true" Style="width:200px;" ValueChanged="OnRoleChanged">
+                <MudSelectItem T="AccountRole?" Value="null">All</MudSelectItem>
+                @foreach (var role in Enum.GetValues<AccountRole>())
+                {
+                     <MudSelectItem T="AccountRole?" Value="role">@role.ToString()</MudSelectItem>
+                }
+            </MudSelect>
+        </MudStack>
+
+        <!-- Table -->
+        <MudTable   T="Account"
+                    @ref="_table"
+                    ServerData="LoadUsers"
+                    Hover="true"
+                    Bordered="true"
+                    Striped="true"
+                    SortLabel="Sort By"
+                    RowsPerPage="10">
+
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new int[] { 10, 25, 50, 100 }" />
+            </PagerContent>
+
+            <HeaderContent>
+                <MudTh><MudTableSortLabel T="Account" SortBy="x => x.Id" SortLabel="Id">ID</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel T="Account" SortBy="x => x.Email" SortLabel="Email">Email</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel T="Account" SortBy="x => x.Lastname" SortLabel="Lastname">Lastname</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel T="Account" SortBy="x => x.Restname" SortLabel="Restname">Restname</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel T="Account" SortBy="x => x.Role" SortLabel="Role">Role</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel T="Account" SortBy="x => x.RegTime" SortLabel="RegTime">Registered</MudTableSortLabel></MudTh>
+            </HeaderContent>
+
+            <RowTemplate Context="u">
+                <MudTd DataLabel="ID">@u.Id</MudTd>
+                <MudTd DataLabel="Email">@u.Email</MudTd>
+                <MudTd DataLabel="Lastname">@u.Lastname</MudTd>
+                <MudTd DataLabel="Restname">@u.Restname</MudTd>
+                <MudTd DataLabel="Role">@u.Role</MudTd>
+                <MudTd DataLabel="RegTime">@u.RegTime.ToString("yyyy-MM-dd")</MudTd>
+            </RowTemplate>
+
+        </MudTable>
+    </MudPaper>
+</MudContainer>
+
+@code
+{
+    private string searchString = "";
+    private AccountRole? selectedRole;
+    private MudTable<Account>? _table;
+
+    private async Task<TableData<Account>> LoadUsers(TableState state, CancellationToken cancellationToken)
+    {
+        var query = Context.Accounts.AsQueryable();
+
+        // Filtering example (optional)
+        if (!string.IsNullOrWhiteSpace(searchString))
+        {
+            query = query.Where(x => x.Email.Contains(searchString)
+                                  || x.Restname.Contains(searchString)
+                                  || x.Lastname.Contains(searchString));
+        }
+
+        // Sorting
+        if (!string.IsNullOrEmpty(state.SortLabel))
+        {
+            query = state.SortDirection switch
+            {
+                SortDirection.Ascending => query.OrderBy(x => EF.Property<object>(x, state.SortLabel)),
+                SortDirection.Descending => query.OrderByDescending(x => EF.Property<object>(x, state.SortLabel)),
+                _ => query
+            };
+        }
+        else
+        {
+            query = query.OrderBy(x => x.Id); // default sort
+        }
+
+        // Pagination
+        var totalItems = await query.CountAsync();
+        var items = await query.Skip(state.Page * state.PageSize)
+                               .Take(state.PageSize)
+                               .ToListAsync();
+
+        return new TableData<Account> { TotalItems = totalItems, Items = items };
+    }
+
+    private async Task OnSearchKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+            await _table!.ReloadServerData();
+    }
+
+    private async Task OnRoleChanged(AccountRole? role)
+    {
+        selectedRole = role;
+        await _table!.ReloadServerData();
+    }
+
+    private bool FilterUsers(Account acc) => true;
+}

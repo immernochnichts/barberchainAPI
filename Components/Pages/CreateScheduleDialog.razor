@@ -1,0 +1,266 @@
+﻿@namespace barberchainAPI.Components.Pages
+@using MudBlazor;
+@using System.Collections;
+@using barberchainAPI.Functional
+@using System.Security.Claims
+@inject CartService CartService
+@inject IJSRuntime JS
+@inject BarberchainDbContext Context
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<style>
+    .timeline-wrapper {
+        overflow-x: auto;
+        width: 100%;
+    }
+
+    .hour-markers,
+    .availability-line {
+        display: flex;
+    }
+
+    .hour-marker {
+        flex: 0 0 auto; /* prevent shrinking */
+        width: 100px; /* 4 slots per hour */
+        text-align: left;
+        font-size: 12px;
+    }
+
+    .time-block {
+        flex: 0 0 auto; /* prevent shrinking */
+        width: 25px;
+        height: 25px;
+        border-radius: 5px;
+        border: 1px solid darkgrey;
+    }
+
+        .time-block.available {
+            background-color: white;
+        }
+
+        .time-block.unavailable {
+            background-color: darkgray;
+        }
+
+    .hover-layer {
+        position: absolute;
+        top: 15px;
+        left: 25px;
+        height: 30px;
+        pointer-events: none;
+        display: flex;
+    }
+
+    .time-block,
+    .hover-cell {
+        box-sizing: border-box;
+    }
+</style>
+
+<MudDialog>
+    <TitleContent>
+        Измените расписание и подайте заявку на его изменение для данного дня. Или просто просмотрите расписание на определенный день.
+    </TitleContent>
+    <DialogContent>
+        <MudDatePicker Style="max-width:600px;" Class="mb-8" @bind-Date="SelectedDate" Label="Выберите дату" PickerVariant="PickerVariant.Inline" />
+
+        @if (AtuPattern != null && _selectedDate != null)
+        {
+            <div class="timeline-wrapper">
+                <div class="hour-markers">
+                    @for (int i = 0; i < AtuPattern.Length; i += 4)
+                    {
+                        <div class="hour-marker">@($"{i / 4}:00")</div>
+                    }
+                </div>
+
+                <div class="availability-line"
+                     @onmouseup="EndDrag"
+                     @onmouseleave="EndDrag">
+                    @for (int i = 0; i < AtuPattern.Length; i++)
+                    {
+                        int index = i;
+                        <div class="time-block @(AtuPattern[index] ? "available" : "unavailable")"
+                             @onmousedown="e => StartDrag(e, index)"
+                             @onmouseenter="() => ContinueDrag(index)">
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <MudTextField Class="mt-8" @bind-Value="Message" Label="Причина изменения" Lines="4" FullWidth="true" />
+    </DialogContent>
+    <DialogActions>
+        <MudText Style="color: crimson">@error</MudText>
+        <MudButton Color="Color.Secondary" OnClick="Cancel">Отмена</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">Подтвердить</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; }
+
+    [Parameter] public Barber Barber { get; set; }
+    [Parameter] public ClaimsPrincipal User { get; set; }
+
+    private string Message { get; set; } = "";
+
+    private DateTime? _selectedDate;
+    private DateTime? SelectedDate
+    {
+        get => _selectedDate;
+        set
+        {
+            if (_selectedDate != value)
+            {
+                _selectedDate = value;
+                LoadAtuPattern();
+            }
+        }
+    }
+
+    private async Task LoadAtuPattern()
+    {
+        if (_selectedDate == null) return;
+
+        var bsd = await Context.BarberScheduleDays.Where(bsd => bsd.Date == DateOnly.FromDateTime(_selectedDate.Value) && bsd.BarberId == Barber.Id).FirstOrDefaultAsync();
+        if (bsd == null)
+        {
+            AtuPattern = Barber.Bshop.DefaultSchedule;
+        }
+        else
+        {
+            AtuPattern = bsd.AtuPattern;
+        }
+
+        StateHasChanged();
+    }
+
+    private void ToggleSlot(int index)
+    {
+        if (AtuPattern != null && index >= 0 && index < AtuPattern.Length)
+            AtuPattern[index] = !AtuPattern[index];
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private ScheduleRequest? request;
+    private string? error;
+    private BitArray AtuPattern;
+
+    private bool BitArraysEqual(BitArray a, BitArray b)
+    {
+        if (a == null || b == null) return false;
+        if (a.Length != b.Length) return false;
+
+        for (int i = 0; i < a.Length; i++)
+            if (a[i] != b[i])
+                return false;
+
+        return true;
+    }
+
+    private async Task Submit()
+    {
+        if (string.IsNullOrWhiteSpace(Message))
+        {
+            error = "Укажите, пожалуйста, причину";
+            return;
+        }
+        else if (_selectedDate == null)
+        {
+            error = "Выберите дату";
+            return;
+        }
+
+        var bsd = await Context.BarberScheduleDays
+            .Where(d => d.Date == DateOnly.FromDateTime(_selectedDate.Value) && d.BarberId == Barber.Id)
+            .Select(d => d.AtuPattern)
+            .FirstOrDefaultAsync();
+
+        if ((bsd != null && BitArraysEqual(bsd, AtuPattern)) || BitArraysEqual(AtuPattern, Barber.Bshop.DefaultSchedule))
+        {
+            error = "Вы не внесли никаких изменений";
+            return;
+        }
+
+        var userId = int.Parse(User.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
+        var barberId = await Context.Barbers.Where(b => b.AccountId == userId).Select(b => b.Id).FirstOrDefaultAsync();
+        var requestDate = DateOnly.FromDateTime(_selectedDate.Value);
+
+        request = new ScheduleRequest
+            {
+                BarberId = barberId,
+                RequestDate = requestDate,
+                AtuPattern = AtuPattern,
+                Message = Message,
+                Status = ScheduleRequestStatus.Pending
+            };
+
+
+        Context.ScheduleRequests.Add(request);
+        await Context.SaveChangesAsync();
+
+        await NotifyManager();
+
+        Snackbar.Add("Запрос на изменение расписания подан", Severity.Info);
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private async Task NotifyManager()
+    {
+        var not = new Notification
+            {
+                Type = NotificationType.System,
+                Content = $"Запрос на изменение расписания от {Barber.Account.Lastname} {Barber.Account.Restname} за {_selectedDate}"
+            };
+
+        Context.Notifications.Add(not);
+        await Context.SaveChangesAsync();
+
+        var acc_not = new AccountNotification
+            {
+                AccountId = Barber.Bshop.ManagerAccountId,
+                NotificationId = not.Id
+            };
+
+        Context.AccountNotifications.Add(acc_not);
+        await Context.SaveChangesAsync();
+    }
+
+    private bool _isDragging = false;
+    private bool _dragSetValue = true;
+
+
+    private void StartDrag(MouseEventArgs e, int index)
+    {
+        if (e.Button != 0 || AtuPattern == null) return; // only left click
+
+        _isDragging = true;
+
+        // decide whether we are making blocks available or unavailable
+        _dragSetValue = !AtuPattern[index];
+
+        // apply the value to the clicked block
+        AtuPattern[index] = _dragSetValue;
+
+        StateHasChanged();
+    }
+
+    private void ContinueDrag(int index)
+    {
+        if (!_isDragging || AtuPattern == null || index < 0 || index >= AtuPattern.Length)
+            return;
+
+        AtuPattern[index] = _dragSetValue;
+        StateHasChanged();
+    }
+
+    private void EndDrag()
+    {
+        _isDragging = false;
+    }
+
+}
