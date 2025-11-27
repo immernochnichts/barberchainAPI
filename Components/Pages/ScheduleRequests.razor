@@ -1,7 +1,62 @@
-﻿@using System.Security.Claims
+﻿@namespace barberchainAPI.Components.Pages
+@using System.Security.Claims
 @using barberchainAPI.Data
 @inject BarberchainDbContext Context
 @inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<style>
+    .timeline-wrapper {
+        overflow-x: auto;
+        width: 100%;
+    }
+
+    .hour-markers,
+    .availability-line {
+        display: flex;
+    }
+
+    .hour-marker {
+        flex: 0 0 auto; /* prevent shrinking */
+        width: 100px; /* 4 slots per hour */
+        text-align: left;
+        font-size: 12px;
+    }
+
+    .time-block {
+        flex: 0 0 auto; /* prevent shrinking */
+        width: 25px;
+        height: 25px;
+        border-radius: 5px;
+        border: 1px solid darkgrey;
+    }
+
+        .time-block.available {
+            background-color: white;
+        }
+
+        .time-block.unavailable {
+            background-color: darkgray;
+        }
+
+    .hover-layer {
+        position: absolute;
+        top: 15px;
+        left: 25px;
+        height: 30px;
+        pointer-events: none;
+        display: flex;
+    }
+
+    .time-block,
+    .hover-cell {
+        box-sizing: border-box;
+    }
+</style>
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="mx-auto mt-4">
     <MudPaper Class="pa-4">
@@ -81,11 +136,75 @@
     private async Task ApproveRequest(int requestId)
     {
         var req = await Context.ScheduleRequests.FindAsync(requestId);
-        if (req != null)
+
+        var declinedOrderCount = !string.IsNullOrEmpty(req.OrderIdsToDecline) ? req.OrderIdsToDecline?.Split(" ").Count() : 0;
+
+        bool? confirmed = await DialogService.ShowMessageBox(
+            "Подтвердите изменение расписания",
+            $"Изменить расписание? {declinedOrderCount} заказов будет отменено ",
+            yesText: "Подтвердить", cancelText: "Отмена");
+
+        if (confirmed != null && confirmed.Value)
         {
-            req.Status = ScheduleRequestStatus.Approved;
-            await Context.SaveChangesAsync();
-            await LoadRequests();
+            if (req != null)
+            {
+                var sched = await Context.BarberScheduleDays.Where(d => d.Date == req.RequestDate && d.BarberId == req.BarberId).FirstOrDefaultAsync();
+                req.Status = ScheduleRequestStatus.Approved;
+
+                if (sched == null) // barber altered schedule that's not present in DB yet. We'll create it right now then. No orders could've been placed here
+                {
+                    var newSched = new BarberScheduleDay()
+                    {
+                        AtuPattern = req.AtuPattern,
+                        BarberId = req.BarberId,
+                        Date = req.RequestDate
+                    };
+                    Context.BarberScheduleDays.Add(newSched);
+                }
+                else // barber altered schedule that's present in the DB
+                {
+                    sched.AtuPattern = req.AtuPattern;
+
+                    var not = new Notification // send notification to users with an account
+                    {
+                        Type = NotificationType.General,
+                        Content = $"Просим прощение за предоставленные неудобства. Ваш заказ был отклонён. Сотрудник указал следующее при подаче заявки на изменение расписания: {req.Message}"
+                    };
+
+                    bool firstTime = true;
+
+                    foreach (var o in req.OrderIdsToDecline?.Split(" ", StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        var order = await Context.Orders.Where(ord => ord.Id == int.Parse(o)).FirstOrDefaultAsync();
+
+                        if (order.AccountId != null)
+                        {
+                            if (firstTime)
+                            {
+                                firstTime = false;
+                                Context.Notifications.Add(not);
+                                await Context.SaveChangesAsync();
+                            }
+
+                            var acc_not = new AccountNotification
+                            {
+                                AccountId = order.AccountId.Value,
+                                NotificationId = not.Id
+                            };
+
+                            Context.AccountNotifications.Add(acc_not);
+                        }
+
+                        order.Status = OrderStatus.Declined;
+                    }
+                }
+
+                await Context.SaveChangesAsync();
+                await NotifyBarber(req);
+                await LoadRequests();
+
+                StateHasChanged();
+            }
         }
     }
 
@@ -94,9 +213,66 @@
         var req = await Context.ScheduleRequests.FindAsync(requestId);
         if (req != null)
         {
-            req.Status = ScheduleRequestStatus.Rejected;
-            await Context.SaveChangesAsync();
+            var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Large, FullWidth = true };
+            var params_ = new DialogParameters<DeclineRequestDialog> {
+            { x => x.Request, req } };
+
+            var dialog = await DialogService.ShowAsync<DeclineRequestDialog>("Отклонить изменение расписания", params_, options);
+
+            var dialogResult = await dialog.Result;
+            var updatedReq = dialogResult.Data as ScheduleRequest;
+
+            await NotifyBarber(updatedReq);
             await LoadRequests();
+            StateHasChanged();
         }
+    }
+
+    private async Task NotifyBarber(ScheduleRequest req)
+    {
+        Notification not = default;
+
+        if (req.Status == ScheduleRequestStatus.Approved)
+        {
+            List<Order> noAuthOrders = new();
+
+            var orderIdsToDeclineArray = req.OrderIdsToDecline?.Split(" ");
+            foreach (var o in req.OrderIdsToDecline?.Split(" ", StringSplitOptions.RemoveEmptyEntries))
+            {
+                int orderId = int.Parse(o);
+                var noAuthOrder = await Context.Orders.Where(ord => ord.Id == orderId && ord.AccountId == null).FirstOrDefaultAsync();
+
+                if (noAuthOrder != null)
+                {
+                    noAuthOrders.Add(noAuthOrder);
+                }
+            }
+
+            not = new Notification
+            {
+                Type = NotificationType.General,
+                Content = $"Запрос на изменение расписания на {req.RequestDate} одобрен. Заказов отклонено: {req.OrderIdsToDecline.Split(" ", StringSplitOptions.RemoveEmptyEntries).Count()}. Из них людей без аккаунта: {noAuthOrders.Count()}. Пожалуйста, позвоните на следующие номера телефонов и предупредите об отмене заказов: {string.Join(", ", noAuthOrders.Select(o => o.Phone))}"
+            };
+        }
+        else
+        {
+            not = new Notification
+            {
+                Type = NotificationType.General,
+                Content = $"Запрос на изменение расписания на {req.RequestDate} отклонён. Менеджер указал следующую причину: {req.ReasonRejected}" // the reason is null or empty or whatever the fuck
+            };
+        }
+
+        Context.Notifications.Add(not);
+        await Context.SaveChangesAsync();
+
+        var acc_not = new AccountNotification
+        {
+            AccountId = req.Barber.AccountId.Value,
+            NotificationId = not.Id
+        };
+
+        Context.AccountNotifications.Add(acc_not);
+        await Context.SaveChangesAsync();
     }
 }

@@ -163,7 +163,7 @@ else
                 return;
             }
 
-            if (acc.Id != int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value))
+            if (acc != null && acc.Id != int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value))
             {
                 Navigation.NavigateTo("/");
                 Navigation.Refresh();

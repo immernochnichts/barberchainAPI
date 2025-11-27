@@ -42,5 +42,11 @@ namespace barberchainAPI.Data
         [Required]
         [Column("atu_pattern")]
         public BitArray AtuPattern { get; set; }
+
+        [Column("order_ids_to_decline")]
+        public string? OrderIdsToDecline { get; set; }
+
+        [Column("reason_rejected")]
+        public string? ReasonRejected { get; set; }
     }
 }

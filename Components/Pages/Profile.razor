@@ -51,12 +51,11 @@ else
                 @if (user != null && user.Identity.IsAuthenticated && account.Id == int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value))
                 {
                     <MudText Typo="Typo.subtitle2" Align="Align.Start">электронная почта (видна только вам): @account.Email</MudText>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Style="margin-bottom: 1rem;" Class="ml-auto mt-auto"
+                                OnClick="StartEditing">
+                        Редактировать
+                    </MudButton>
                 }
-
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" Style="margin-bottom: 1rem;" Class="ml-auto mt-auto"
-                           OnClick="StartEditing">
-                    Редактировать
-                </MudButton>
             }
             else
             {
@@ -303,17 +302,46 @@ else
 
     public async Task<BitArray> GetAvailabilityForDay(int barberId, DateTime? day)
     {
-        var availability = await Context.BarberScheduleDays
-            .Where(a => a.BarberId == barberId && a.Date == DateOnly.FromDateTime(day.Value))
-            .Select(a => a.AtuPattern)
+        var schedRequest = await Context.ScheduleRequests   // first check schedule requests
+            .Where(a => a.BarberId == barberId && a.RequestDate == DateOnly.FromDateTime(day.Value) && a.Status == ScheduleRequestStatus.Pending)
             .FirstOrDefaultAsync();
 
-        if (availability is null)
-        {
-            availability = new BitArray(Enumerable.Repeat<bool>(false, 96).ToArray());
-        }
+        var availability = schedRequest?.AtuPattern;
 
-        return availability;
+        if (availability != null)
+        {
+            foreach (var strId in schedRequest.OrderIdsToDecline.Split(" ", StringSplitOptions.RemoveEmptyEntries))
+            {
+                Console.WriteLine("Current order ID: " + strId);
+
+                int orderId = int.Parse(strId);
+
+                Console.WriteLine("Current order ID after parsing: " + strId);
+
+                var order = await Context.Orders.Include(o => o.OrderJobs).Where(o => o.Id == orderId).FirstOrDefaultAsync();
+                var declinedOrderJobs = order.OrderJobs.Select(oj => oj.Job);
+                var orderDuration = declinedOrderJobs.Select(oj => (int)oj.DurationAtu).Sum();
+
+                int startIdx = order.AppointedTime.Hour * 4 + order.AppointedTime.Minute / 15;
+                int endIdx = startIdx + orderDuration - 1;
+
+                for (int i = startIdx; i <= endIdx; i++)
+                {
+                    availability[i] = false;    // mark times booked by potentially declined orders as unavailable to avoid overlapping
+                }
+            }
+
+            return availability;
+        }
+        else
+        {
+            availability = await Context.BarberScheduleDays // then check schedule days
+                .Where(a => a.BarberId == barberId && a.Date == DateOnly.FromDateTime(day.Value))
+                .Select(a => a.AtuPattern)
+                .FirstOrDefaultAsync();
+
+            return availability ?? new BitArray(Enumerable.Repeat<bool>(false, 96).ToArray());
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstTime)

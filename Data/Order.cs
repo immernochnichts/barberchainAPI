@@ -61,6 +61,8 @@ namespace barberchainAPI.Data
         [Column("pending_until")]
         public DateTime? PendingUntil { get; set; }
 
+        [Column("phone")]
+        public string? Phone { get; set; }
         public ICollection<OrderJob> OrderJobs { get; set; }
     }
 }

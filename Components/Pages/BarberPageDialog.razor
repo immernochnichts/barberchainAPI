@@ -195,7 +195,11 @@
     <DialogActions>
         <MudText Style="color: crimson">@errorMsg</MudText>
         <MudButton OnClick="Cancel">Отмена</MudButton>
-        @if (user != null && int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value) != Barber.AccountId)
+        @if (user != null && user.Identity.IsAuthenticated && int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value) != Barber.AccountId)
+        {
+            <MudButton Color="Color.Primary" OnClick="Submit">Перейти к оплате</MudButton>
+        }
+        else
         {
             <MudButton Color="Color.Primary" OnClick="Submit">Перейти к оплате</MudButton>
         }
@@ -289,7 +293,7 @@
         var newBits = new BitArray(bscd.AtuPattern);  // clone
 
         int i = firstpj.StartIndex;
-        while (i <= lastpj.StartIndex + lastpj.Duration)
+        while (i < lastpj.StartIndex + lastpj.Duration)
         {
             newBits[i] = false;
             i++;

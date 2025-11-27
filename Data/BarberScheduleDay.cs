@@ -23,10 +23,5 @@ namespace barberchainAPI.Data
 
         [Column("atu_pattern")]
         public BitArray AtuPattern { get; set; }
-
-        [Column("fk_manager_account")]
-        public int? ManagerAccountId { get; set; }
-        [ForeignKey(nameof(ManagerAccountId))]
-        public Account Manager { get; set; }
     }
 }

@@ -1,0 +1,61 @@
+﻿@namespace barberchainAPI.Components.Pages
+@using MudBlazor;
+@using System.Collections;
+@using barberchainAPI.Functional
+@using System.Security.Claims
+@inject BarberchainDbContext Context
+@inject ISnackbar Snackbar
+
+<MudDialog MaxWidth="MaxWidth.Small" FullWidth="true">
+    <TitleContent>Отказать в изменении расписания</TitleContent>
+
+    <DialogContent>
+        <MudTextField Label="Укажите причину отказа"
+                        @bind-Value="_reason"
+                        Lines="4"
+                        FullWidth="true"
+                        Required="true"
+                        Immediate="true"
+                        MaxLength="255"
+                        Margin="Margin.Dense" />
+
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="Cancel">
+            Отмена
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save">
+            Подтвердить
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code
+{
+    [CascadingParameter]
+    IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public ScheduleRequest Request { get; set; } = default!;
+
+    private string _reason;
+
+    private async Task Save()
+    {
+        Request.Status = ScheduleRequestStatus.Rejected;
+        Request.ReasonRejected = _reason;
+
+        await Context.SaveChangesAsync();
+
+        Snackbar.Add("Заявка успешно отклонена.", Severity.Info);
+
+        MudDialog.Close(Request);
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

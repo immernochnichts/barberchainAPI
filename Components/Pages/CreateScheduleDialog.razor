@@ -1,6 +1,7 @@
 ﻿@namespace barberchainAPI.Components.Pages
 @using MudBlazor;
 @using System.Collections;
+@using barberchainAPI.Data
 @using barberchainAPI.Functional
 @using System.Security.Claims
 @inject CartService CartService
@@ -60,10 +61,13 @@
 
 <MudDialog>
     <TitleContent>
-        Измените расписание и подайте заявку на его изменение для данного дня. Или просто просмотрите расписание на определенный день.
+        Измените расписание и подайте заявку на его изменение для данного дня. Красным отмечено забронированное время. Если вы измените его, заказ, связанный с этим временем будет отменён. Если вы хотите отредактировать запрос - пошлите новый. Он заменит старый.
     </TitleContent>
     <DialogContent>
-        <MudDatePicker Style="max-width:600px;" Class="mb-8" @bind-Date="SelectedDate" Label="Выберите дату" PickerVariant="PickerVariant.Inline" />
+        <MudStack Row="true">
+            <MudDatePicker Style="max-width:600px;" Class="mb-8" @bind-Date="SelectedDate" Label="Выберите дату" PickerVariant="PickerVariant.Inline" />
+            <MudButton Color="Color.Error" Style="max-width: fit-content;" @onclick="CancelChanges">Отменить изменения</MudButton>
+        </MudStack>
 
         @if (AtuPattern != null && _selectedDate != null)
         {
@@ -82,6 +86,7 @@
                     {
                         int index = i;
                         <div class="time-block @(AtuPattern[index] ? "available" : "unavailable")"
+                             style=@(occupiedIndexes.Contains(index) ? "background-color: crimson;" : "")
                              @onmousedown="e => StartDrag(e, index)"
                              @onmouseenter="() => ContinueDrag(index)">
                         </div>
@@ -100,6 +105,16 @@
 </MudDialog>
 
 @code {
+     /*
+     * 1. Barber can alter schedule for 30 upcoming days.
+     * 2. If barber makes unavailable a time block that's a part of some order, then, if schedule request is approved by the manager, the order is declined and the user is notified.
+     * 3. Barber can send only one schedule adjustment request. If he sends another one for the same day - the schedule of the previous day will be altered.
+     * 4. When booking, user sees the schedule of the schedule request for that day. The orders that are to decline in the request must all be marked unavailable - because we don't know
+     * if request will be approved or not. If it won't be approved, we have a change of overlapping orders if we don't make times they booked unavailable. Later, when schedule request gets approved,
+     * the times that are parts of declined orders will become available because we know the order was declined and won't be restored.
+     */
+
+
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; }
 
     [Parameter] public Barber Barber { get; set; }
@@ -121,22 +136,56 @@
         }
     }
 
+    private Dictionary<int, string> indexToColor = new();
+
+    private List<int> occupiedIndexes = new();
+    private List<Order> orders = new();
+    private List<Order> ordersToDecline = new();
+    private Dictionary<Tuple<int, int>, Order> idxRangeToOrder = new();
+
     private async Task LoadAtuPattern()
     {
         if (_selectedDate == null) return;
 
-        var bsd = await Context.BarberScheduleDays.Where(bsd => bsd.Date == DateOnly.FromDateTime(_selectedDate.Value) && bsd.BarberId == Barber.Id).FirstOrDefaultAsync();
-        if (bsd == null)
+        var date = DateOnly.FromDateTime(_selectedDate.Value);
+
+        var bsd = await Context.BarberScheduleDays
+            .Where(x => x.Date == date && x.BarberId == Barber.Id)
+            .FirstOrDefaultAsync();
+
+        AtuPattern = bsd != null ? new BitArray(bsd.AtuPattern) : new BitArray(Barber.Bshop.DefaultSchedule);
+
+        orders = await Context.Orders
+            .Where(o =>
+                DateOnly.FromDateTime(o.AppointedTime) == date &&
+                o.BarberId == Barber.Id &&
+                (o.Status == OrderStatus.Pending || o.Status == OrderStatus.Waiting))
+            .Include(o => o.OrderJobs)
+            .ToListAsync();
+
+        occupiedIndexes.Clear();
+
+        foreach (var order in orders)
         {
-            AtuPattern = Barber.Bshop.DefaultSchedule;
-        }
-        else
-        {
-            AtuPattern = bsd.AtuPattern;
+            int startIndex =
+                order.AppointedTime.Hour * 4 +
+                order.AppointedTime.Minute / 15;
+
+            int totalDuration = order.OrderJobs.Sum(j => (int)j.Job.DurationAtu);
+
+            idxRangeToOrder.Add(new Tuple<int, int>(startIndex, startIndex + totalDuration - 1), order);
+
+            for (int i = 0; i < totalDuration; i++)
+            {
+                int idx = startIndex + i;
+                if (idx >= 0 && idx < 96)
+                    occupiedIndexes.Add(idx);
+            }
         }
 
         StateHasChanged();
     }
+
 
     private void ToggleSlot(int index)
     {
@@ -190,17 +239,32 @@
         var barberId = await Context.Barbers.Where(b => b.AccountId == userId).Select(b => b.Id).FirstOrDefaultAsync();
         var requestDate = DateOnly.FromDateTime(_selectedDate.Value);
 
-        request = new ScheduleRequest
-            {
-                BarberId = barberId,
-                RequestDate = requestDate,
-                AtuPattern = AtuPattern,
-                Message = Message,
-                Status = ScheduleRequestStatus.Pending
-            };
+        var alreadyExistingRequest = await Context.ScheduleRequests.Where(sr => sr.RequestDate == requestDate && sr.BarberId == barberId).FirstOrDefaultAsync();
+
+        if (alreadyExistingRequest != null)
+        {
+            alreadyExistingRequest.AtuPattern = AtuPattern;
+            alreadyExistingRequest.Message = Message;
+            alreadyExistingRequest.Status = ScheduleRequestStatus.Pending;
+            alreadyExistingRequest.OrderIdsToDecline = string.Join(" ", ordersToDecline.Select(o => o.Id.ToString()));
+        }
+        else
+        {
+            request = new ScheduleRequest
+                {
+                    BarberId = barberId,
+                    RequestDate = requestDate,
+                    AtuPattern = AtuPattern,
+                    Message = Message,
+                    Status = ScheduleRequestStatus.Pending
+                };
+
+            request.OrderIdsToDecline = string.Join(" ", ordersToDecline.Select(o => o.Id.ToString()));
+
+            Context.ScheduleRequests.Add(request);
+        }
 
 
-        Context.ScheduleRequests.Add(request);
         await Context.SaveChangesAsync();
 
         await NotifyManager();
@@ -238,6 +302,26 @@
     {
         if (e.Button != 0 || AtuPattern == null) return; // only left click
 
+        if (occupiedIndexes.Contains(index))
+        {
+            foreach (var pair in idxRangeToOrder)
+            {
+                if (pair.Key.Item1 <= index && index <= pair.Key.Item2
+                    && !ordersToDecline.Contains(idxRangeToOrder[pair.Key]))
+                {
+                    ordersToDecline.Add(idxRangeToOrder[pair.Key]);
+                    occupiedIndexes.RemoveAll(x => pair.Key.Item1 <= x && x <= pair.Key.Item2);
+                    for (int i = pair.Key.Item1; i <= pair.Key.Item2; i++)
+                    {
+                        AtuPattern[i] = true;
+                    }
+                    Console.WriteLine(pair.Key.Item1 + " " + pair.Key.Item2 + " order ID " + idxRangeToOrder[pair.Key].Id);
+                }
+            }
+
+            occupiedIndexes.Remove(index);
+        }
+
         _isDragging = true;
 
         // decide whether we are making blocks available or unavailable
@@ -263,4 +347,35 @@
         _isDragging = false;
     }
 
+    private async Task CancelChanges()
+    {
+        Console.WriteLine("CancelChanges invoked");
+
+        var bsd = await Context.BarberScheduleDays
+            .Where(x => x.Date == DateOnly.FromDateTime(SelectedDate.Value) && x.BarberId == Barber.Id)
+            .FirstOrDefaultAsync();
+
+        AtuPattern.SetAll(true);
+        var sched = bsd != null ? bsd.AtuPattern : Barber.Bshop.DefaultSchedule;
+        AtuPattern.And(sched);
+        ordersToDecline.Clear();
+
+        foreach (var order in orders)
+        {
+            int startIndex =
+                order.AppointedTime.Hour * 4 +
+                order.AppointedTime.Minute / 15;
+
+            int totalDuration = order.OrderJobs.Sum(j => (int)j.Job.DurationAtu);
+
+            for (int i = 0; i < totalDuration; i++)
+            {
+                int idx = startIndex + i;
+                if (idx >= 0 && idx < 96)
+                    occupiedIndexes.Add(idx);
+            }
+        }
+
+        StateHasChanged();
+    }
 }
