@@ -199,7 +199,7 @@
         {
             <MudButton Color="Color.Primary" OnClick="Submit">Перейти к оплате</MudButton>
         }
-        else
+        else if (user != null && !user.Identity.IsAuthenticated)
         {
             <MudButton Color="Color.Primary" OnClick="Submit">Перейти к оплате</MudButton>
         }
@@ -319,6 +319,20 @@
         {
             cart = await CartService.GetCart();
             StateHasChanged();
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (SelectedDate == DateTime.Today) // cannot place order to the past time, you know?
+        {
+            int currentIndex = (int)(DateTime.Now.TimeOfDay.TotalMinutes / 15) + 2;
+
+            for (int i = 0; i < AtuPattern.Length; i++)
+            {
+                if (i < currentIndex)
+                    AtuPattern[i] = false;
+            }
         }
     }
 

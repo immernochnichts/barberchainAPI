@@ -1,0 +1,179 @@
+﻿@inject BarberchainDbContext Context
+@using System.Security.Claims
+
+<MudPopoverProvider></MudPopoverProvider>
+
+<MudContainer Class="mx-auto mt-4" Style="width:100%;">
+    <MudPaper Class="pa-4">
+
+        <MudText Typo="Typo.h5" Class="mb-4">Список заказов мне</MudText>
+
+        <MudTextField @bind-Value="_search"
+                      Placeholder="Введите фамилию (username) или номер телефона..."
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      Immediate="true"
+                      Class="flex-grow-1"
+                      OnKeyDown="OnSearchKeyDown" />
+        <!-- Filters -->
+        <MudStack Row="true" Spacing="2" Class="mb-4">
+
+            <!-- Status -->
+            <MudSelect T="OrderStatus?" @bind-Value="_status" @bind-Value:event="onchange" Label="Статус" Clearable="true" Dense="true" Style="width:180px;" ValueChanged="OnStatusChanged">
+                <MudSelectItem T="OrderStatus?" Value="null">All</MudSelectItem>
+                @foreach (var st in Enum.GetValues<OrderStatus>())
+                {
+                    <MudSelectItem T="OrderStatus?" Value="st">@st</MudSelectItem>
+                }
+            </MudSelect>
+
+            <!-- Method -->
+            <MudSelect T="OrderMethod?" @bind-Value="_method" @bind-Value:event="onchange" Label="Метод" Clearable="true" Dense="true" Style="width:160px;" ValueChanged="OnMethodChanged">
+                <MudSelectItem T="OrderMethod?" Value="null">All</MudSelectItem>
+                @foreach (var m in Enum.GetValues<OrderMethod>())
+                {
+                    <MudSelectItem T="OrderMethod?" Value="m">@m</MudSelectItem>
+                }
+            </MudSelect>
+
+            <!-- Date range -->
+            <MudDateRangePicker Label="Диапазон дат"
+                                @bind-DateRange="_dateRange"
+                                ValueChanged="OnDateRangeChanged"
+                                Style="width:260px;" />
+
+        </MudStack>
+
+
+        <!-- TABLE -->
+        <MudTable T="Order"
+                  @ref="_table"
+                  ServerData="LoadOrders"
+                  Hover="true"
+                  Bordered="true"
+                  Striped="true"
+                  RowsPerPage="10"
+                  SortLabel="Sort By">
+
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new int[] {10, 25, 50, 100}" />
+            </PagerContent>
+
+            <HeaderContent>
+                <MudTh><MudTableSortLabel T="Order" SortLabel="Id" SortBy="x => x.Id">ID</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel T="Order" SortLabel="Email" SortBy="x => x.Account.Email">Email</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel T="Order" SortLabel="AppointedTime" SortBy="x => x.AppointedTime">Назнач. время</MudTableSortLabel></MudTh>
+                <MudTh>Статус</MudTh>
+                <MudTh>Метод</MudTh>
+                <MudTh>Оплачен</MudTh>
+                <MudTh>Телефон</MudTh>
+                <MudTh></MudTh>
+            </HeaderContent>
+
+            <RowTemplate Context="o">
+                <MudTd DataLabel="ID">@o.Id</MudTd>
+                <MudTd DataLabel="Account">@o.Account?.Email</MudTd>
+                <MudTd DataLabel="Appointed">@o.AppointedTime.ToString("yyyy-MM-dd HH:mm")</MudTd>
+                <MudTd>@o.Status</MudTd>
+                <MudTd>@o.Method</MudTd>
+                <MudTd>@(o.IsPaid ? "да" : "нет")</MudTd>
+                <MudTd>@(string.IsNullOrEmpty(o.Phone) ? o.Account.Phone : o.Phone)</MudTd>
+            </RowTemplate>
+
+        </MudTable>
+
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private MudTable<Order>? _table;
+
+    [Parameter]
+    public ClaimsPrincipal? User { get; set; }
+
+    private string _search = "";
+    private OrderStatus? _status;
+    private OrderMethod? _method;
+    private DateRange _dateRange = new DateRange(null, null);
+
+    //===== Reload triggers =====
+    private async Task OnSearchKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+            await _table!.ReloadServerData();
+    }
+
+    private async Task OnStatusChanged(OrderStatus? s)
+    {
+        _status = s;
+        await _table!.ReloadServerData();
+    }
+
+    private async Task OnMethodChanged(OrderMethod? m)
+    {
+        _method = m;
+        await _table!.ReloadServerData();
+    }
+
+    private async Task OnDateRangeChanged(DateRange r)
+    {
+        _dateRange = r;
+        await _table!.ReloadServerData();
+    }
+
+
+    private async Task<TableData<Order>> LoadOrders(TableState state, CancellationToken token)
+    {
+        var query = Context.Orders
+            .Include(o => o.Account)
+            .Include(o => o.Barber)
+            .Include(o => o.OrderJobs)
+            .AsQueryable();
+
+        // ------ filtering ------
+        if (!string.IsNullOrWhiteSpace(_search))
+        {
+            query = query.Where(o =>
+                   (o.Phone != null && o.Phone.Contains(_search))
+                || (o.Account != null && o.Account.Email.Contains(_search)));
+        }
+
+        if (_status.HasValue)
+            query = query.Where(o => o.Status == _status.Value);
+
+        if (_method.HasValue)
+            query = query.Where(o => o.Method == _method.Value);
+
+        if (_dateRange.Start != null)
+            query = query.Where(o => o.AppointedTime >= _dateRange.Start.Value);
+
+        if (_dateRange.End != null)
+            query = query.Where(o => o.AppointedTime <= _dateRange.End.Value);
+
+        // ------ sorting ------
+        if (!string.IsNullOrEmpty(state.SortLabel))
+        {
+            query = state.SortDirection switch
+            {
+                SortDirection.Ascending => query.OrderBy(x => EF.Property<object>(x, state.SortLabel)),
+                SortDirection.Descending => query.OrderByDescending(x => EF.Property<object>(x, state.SortLabel)),
+                _ => query
+            };
+        }
+        else query = query.OrderBy(o => o.Id);
+
+        // ------ pagination ------
+        var total = await query.CountAsync(token);
+        var items = await query
+            .Skip(state.Page * state.PageSize)
+            .Take(state.PageSize)
+            .ToListAsync(token);
+
+        return new TableData<Order>
+            {
+                TotalItems = total,
+                Items = items
+            };
+    }
+
+}

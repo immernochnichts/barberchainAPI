@@ -52,6 +52,10 @@ namespace barberchainAPI.Data
         [Column("birth_date")]
         public DateOnly? BirthDate { get; set; }
 
+        [MaxLength(15)]
+        [Column("phone")]
+        public string? Phone { get; set; }
+
         // Navigation
         public ICollection<Review> Reviews { get; set; }
         public ICollection<Order> Orders { get; set; }

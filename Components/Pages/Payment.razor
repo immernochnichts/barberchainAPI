@@ -7,6 +7,11 @@
 @inject NavigationManager Navigation
 @inject BarberchainDbContext Context
 @inject AuthenticationStateProvider AuthStateProvider
+@inject IDialogService DialogService
+
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
 
 @if (order != null && order.Status == OrderStatus.Declined)
 {
@@ -205,6 +210,7 @@ else
 
         if (isFormValid)
         {
+            await SummonPhoneDialog();
             order.IsPaid = true;
             order.Status = OrderStatus.Waiting;
             await Context.SaveChangesAsync();
@@ -220,11 +226,23 @@ else
 
     private async Task HandlePayOfflineClick()
     {
+        await SummonPhoneDialog();
         order.Status = OrderStatus.Waiting;
         await Context.SaveChangesAsync();
         success = true;
         await NotifyBarber();
         StateHasChanged();
+    }
+
+    private async Task SummonPhoneDialog()
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var params_ = new DialogParameters<PhoneDialog> {
+            { x => x.order, order },
+            { x => x.user, user } };
+        var dialog = await DialogService.ShowAsync<PhoneDialog>("Отклонить изменение расписания", params_, options);
+        var dialogResult = await dialog.Result;
+        var phone = dialogResult.Data as string;
     }
 
     private async Task NotifyBarber()

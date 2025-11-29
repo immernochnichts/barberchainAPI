@@ -65,7 +65,7 @@
     </TitleContent>
     <DialogContent>
         <MudStack Row="true">
-            <MudDatePicker Style="max-width:600px;" Class="mb-8" @bind-Date="SelectedDate" Label="Выберите дату" PickerVariant="PickerVariant.Inline" />
+            <MudDatePicker IsDateDisabledFunc="@((DateTime dt)=>(dt < DateTime.Today))" Style="max-width:600px;" Class="mb-8" @bind-Date="SelectedDate" Label="Выберите дату" PickerVariant="PickerVariant.Inline" />
             <MudButton Color="Color.Error" Style="max-width: fit-content;" @onclick="CancelChanges">Отменить изменения</MudButton>
         </MudStack>
 
@@ -229,7 +229,7 @@
             .Select(d => d.AtuPattern)
             .FirstOrDefaultAsync();
 
-        if ((bsd != null && BitArraysEqual(bsd, AtuPattern)) || BitArraysEqual(AtuPattern, Barber.Bshop.DefaultSchedule))
+        if ((bsd != null && BitArraysEqual(bsd, AtuPattern)) && ordersToDecline.Count == 0 || BitArraysEqual(AtuPattern, Barber.Bshop.DefaultSchedule))
         {
             error = "Вы не внесли никаких изменений";
             return;
@@ -251,13 +251,13 @@
         else
         {
             request = new ScheduleRequest
-                {
-                    BarberId = barberId,
-                    RequestDate = requestDate,
-                    AtuPattern = AtuPattern,
-                    Message = Message,
-                    Status = ScheduleRequestStatus.Pending
-                };
+            {
+                BarberId = barberId,
+                RequestDate = requestDate,
+                AtuPattern = AtuPattern,
+                Message = Message,
+                Status = ScheduleRequestStatus.Pending
+            };
 
             request.OrderIdsToDecline = string.Join(" ", ordersToDecline.Select(o => o.Id.ToString()));
 
@@ -278,7 +278,7 @@
         var not = new Notification
             {
                 Type = NotificationType.System,
-                Content = $"Запрос на изменение расписания от {Barber.Account.Lastname} {Barber.Account.Restname} за {_selectedDate}"
+                Content = $"Запрос на изменение расписания от {Barber.Account.Lastname} {Barber.Account.Restname} за {_selectedDate?.ToString("yyyy-MM-dd")}"
             };
 
         Context.Notifications.Add(not);

@@ -18,11 +18,13 @@
 }
 else
 {
-    <MudContainer Style="max-width:800px;" Class="mx-auto mt-4">
+    <MudContainer Style="max-width:900px;" Class="mx-auto mt-4">
 
         @if (IsOwner)
         {
             <MudButton Color="Color.Error" @onclick="Logout">Выйти из аккаунта</MudButton>
+
+            <MudFlexBreak></MudFlexBreak>
 
             <MudButtonGroup Color="Color.Primary" Variant="Variant.Filled">
                 <MudButton @onclick="() => CurrentComponent = AccountComponent.Profile">Профиль</MudButton>
@@ -36,6 +38,7 @@ else
             {
                 <MudButtonGroup Style="background: darkblue;" Variant="Variant.Filled">
                     <MudButton Style="color:white;" @onclick="OpenAdjustmentDialog">Расписание</MudButton>
+                    <MudButton Style="color:white;" @onclick="() => CurrentComponent = AccountComponent.OrdersToDeliver">Заказы мне</MudButton>
                 </MudButtonGroup>
             }
 
@@ -85,6 +88,11 @@ else
                 <ScheduleRequests User="@user"></ScheduleRequests>
                 break;
             }
+            case AccountComponent.OrdersToDeliver:
+            {
+                <OrdersToDeliver User="@user"></OrdersToDeliver>
+                break;
+            }
         }
 
     </MudContainer>
@@ -100,7 +108,8 @@ else
         OrderHistory,
         Cart,
         UserList,
-        ScheduleRequests
+        ScheduleRequests,
+        OrdersToDeliver
     }
 
     [Inject]

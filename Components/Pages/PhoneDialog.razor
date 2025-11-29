@@ -1,0 +1,117 @@
+﻿@namespace barberchainAPI.Components.Pages
+@using MudBlazor;
+@using System.Collections;
+@using barberchainAPI.Functional
+@using System.Security.Claims
+@inject BarberchainDbContext Context
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<MudDialog MaxWidth="MaxWidth.Small" FullWidth="true">
+    <TitleContent>Отказать в изменении расписания</TitleContent>
+
+    <DialogContent>
+        <MudTextField Label="Укажите номер телефона, чтобы с вами можно было связаться"
+                      @bind-Value="_phone"
+                      Lines="1"
+                      FullWidth="true"
+                      Required="true"
+                      Immediate="true"
+                      MaxLength="255"
+                      InputType="InputType.Telephone"
+                      Margin="Margin.Dense" />
+        @if (account != null)
+        {
+            <MudCheckBox T="bool" @bind-Value="savePhone">Сохранить номер телефона</MudCheckBox>
+        }
+        <MudText Style="color: crimson;">@error</MudText>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="Cancel">
+            Отмена
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save">
+            Подтвердить
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code
+{
+    [CascadingParameter]
+    IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string _phone;
+
+    private bool savePhone = false;
+
+    [Parameter]
+    public Order order { get; set; }
+
+    [Parameter]
+    public ClaimsPrincipal? user { get; set; }
+
+    private string error;
+
+    private Account account;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (user.Identity.IsAuthenticated)
+        {
+            int userId = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
+            account = await Context.Accounts.Where(a => a.Id == userId).FirstOrDefaultAsync();
+
+            if (!string.IsNullOrEmpty(account.Phone))
+            {
+                _phone = account.Phone; // if user with phone saved in his account
+            }
+        }
+        else
+        {
+            string guestId = await JS.InvokeAsync<string>("guest.getGuestId");
+            string guestPhone = await JS.InvokeAsync<string>("localStorageHelper.getItem", "phone_" + guestId);
+
+            if (!string.IsNullOrEmpty(guestPhone))
+            {
+                _phone = guestPhone;    // if guest that with phone number saved in browser cache
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task Save()
+    {
+        if (string.IsNullOrWhiteSpace(_phone))
+        {
+            error = "Укажите, пожалуйста, номер телефона";
+            return;
+        }
+
+        if (user != null && user.Identity.IsAuthenticated)
+        {
+            if (savePhone)
+            {
+                account.Phone = _phone;
+            }
+        }
+        else
+        {
+            order.Phone = _phone;
+
+            string guestId = await JS.InvokeAsync<string>("guest.getGuestId");
+            await JS.InvokeVoidAsync("localStorageHelper.setItem", "phone_" + guestId, _phone);
+        }
+
+        Snackbar.Add("Номер телефона успешно сохранён.", Severity.Info);
+        MudDialog.Close(_phone);
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}
