@@ -80,7 +80,7 @@ else
             }
             case AccountComponent.UserList:
             {
-                <UserList></UserList>
+                <UserList UserId="@(int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value))"></UserList>
                 break;
             }
             case AccountComponent.ScheduleRequests:

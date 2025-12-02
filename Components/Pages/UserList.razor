@@ -1,7 +1,9 @@
 ﻿@using barberchainAPI.Functional
 @inject BarberchainDbContext Context
+@inject IDialogService DialogService
 
 <MudPopoverProvider />
+<MudDialogProvider></MudDialogProvider>
 
 <MudContainer Style="max-width:900px; width:max-content;" Class="mx-auto mt-4">
     <MudPaper Class="pa-4">
@@ -48,6 +50,7 @@
                 <MudTh><MudTableSortLabel T="Account" SortBy="x => x.Restname" SortLabel="Restname">Restname</MudTableSortLabel></MudTh>
                 <MudTh><MudTableSortLabel T="Account" SortBy="x => x.Role" SortLabel="Role">Role</MudTableSortLabel></MudTh>
                 <MudTh><MudTableSortLabel T="Account" SortBy="x => x.RegTime" SortLabel="RegTime">Registered</MudTableSortLabel></MudTh>
+                <MudTh></MudTh>
             </HeaderContent>
 
             <RowTemplate Context="u">
@@ -57,6 +60,48 @@
                 <MudTd DataLabel="Restname">@u.Restname</MudTd>
                 <MudTd DataLabel="Role">@u.Role</MudTd>
                 <MudTd DataLabel="RegTime">@u.RegTime.ToString("yyyy-MM-dd")</MudTd>
+                <MudTd DataLabel="Actions">
+                    <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true" OffsetY="true">
+                        @if (u.Role == AccountRole.User)
+                        {
+                            <MudMenuItem @onclick="() => HireBarber(u)">
+                                Нанять барбера
+                            </MudMenuItem>
+                        }
+
+                        @if (u.Role == AccountRole.User 
+                            && Account.Role == AccountRole.Admin)
+                        {
+                            <MudMenuItem @onclick="() => HireManager(u)">
+                                Сделать менеджером
+                            </MudMenuItem>
+                        }
+
+                        @if (u.Role == AccountRole.Barber ||
+                                u.Role == AccountRole.Manager &&
+                                Account.Role == AccountRole.Admin)
+                        {
+                            <MudMenuItem @onclick="() => Fire(u)">
+                                Уволить
+                            </MudMenuItem>
+                        }
+                        else if (u.Role == AccountRole.Barber 
+                                && Account.Role == AccountRole.Manager
+                                && BarberHasThisManager(u, Account))
+                        {
+                            <MudMenuItem @onclick="() => Fire(u)">
+                                Уволить
+                            </MudMenuItem>
+                        }
+
+                        @if (u.Role != AccountRole.Admin && Account.Role == AccountRole.Admin)
+                        {
+                            <MudMenuItem @onclick="() => ToggleBanned(u)">
+                                @(u.IsBanned ? "Разблокировать" : "Заблокировать")
+                            </MudMenuItem>
+                        }
+                    </MudMenu>
+                </MudTd>
             </RowTemplate>
 
         </MudTable>
@@ -68,6 +113,16 @@
     private string searchString = "";
     private AccountRole? selectedRole;
     private MudTable<Account>? _table;
+
+    [Parameter]
+    public int UserId { get; set; }
+
+    private Account Account;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        Account = await Context.Accounts.Where(a => a.Id == UserId).FirstOrDefaultAsync();
+    }
 
     private async Task<TableData<Account>> LoadUsers(TableState state, CancellationToken cancellationToken)
     {
@@ -118,4 +173,199 @@
     }
 
     private bool FilterUsers(Account acc) => true;
+
+    private async Task HireBarber(Account acc)
+    {
+        acc.Role = AccountRole.Barber;
+
+        Notification not = new Notification()
+        {
+            Type = NotificationType.Promotion,
+            Content = $"Вы были повышены до барбера аккаунтом {Account.Lastname} {Account.Restname}"
+        };
+
+        Context.Notifications.Add(not);
+        await Context.SaveChangesAsync();
+
+        AccountNotification acc_not = new AccountNotification
+        {
+            AccountId = acc.Id,
+            NotificationId = not.Id
+        };
+
+        Context.AccountNotifications.Add(acc_not);
+        await Context.SaveChangesAsync();
+
+        ActionLog action = new ActionLog
+        {
+            ActionType = ActionType.HireBarber,
+            ActorAccountId = Account.Id,
+            TargetAccountId = acc.Id,
+            Details = $"Аккаунт с ID {acc.Id} ({acc.Email}) повышен до барбера аккаунтом с ID {Account.Id} ({Account.Email})"
+        };
+
+        Context.ActionLogs.Add(action);
+        await Context.SaveChangesAsync();
+    }
+
+    private async Task HireManager(Account acc)
+    {
+        acc.Role = AccountRole.Manager;
+
+        Notification not = new Notification()
+            {
+                Type = NotificationType.Promotion,
+                Content = $"Вы были повышены до менеджера аккаунтом {Account.Lastname} {Account.Restname}"
+            };
+
+        Context.Notifications.Add(not);
+        await Context.SaveChangesAsync();
+
+        AccountNotification acc_not = new AccountNotification
+            {
+                AccountId = acc.Id,
+                NotificationId = not.Id
+            };
+
+        Context.AccountNotifications.Add(acc_not);
+        await Context.SaveChangesAsync();
+
+        ActionLog action = new ActionLog
+            {
+                ActionType = ActionType.PromoteToManager,
+                ActorAccountId = Account.Id,
+                TargetAccountId = acc.Id,
+                Details = $"Аккаунт с ID {acc.Id} ({acc.Email}) повышен до менеджера аккаунтом с ID {Account.Id} ({Account.Email})"
+            };
+
+        Context.ActionLogs.Add(action);
+        await Context.SaveChangesAsync();
+    }
+
+    private async Task ToggleBanned(Account acc)
+    {
+        acc.IsBanned = !acc.IsBanned;
+        await Context.SaveChangesAsync();
+    }
+
+    private async Task Fire(Account acc)
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Large, FullWidth = true };
+
+        var dialog = await DialogService.ShowAsync<FireDialog>($"Уволить сотрудника {acc.Lastname} {acc.Restname}", options);
+
+        var dialogResult = await dialog.Result;
+
+        if (dialogResult.Canceled)
+        {
+            return;
+        }
+
+        var reason = dialogResult.Data as string;
+
+        Notification not = new Notification()
+        {
+            Type = NotificationType.General,
+            Content = $"Вы были уволены аккаунтом {Account.Lastname} {Account.Restname}. Указана следующая причина: {reason}. "
+        };
+
+        Context.Notifications.Add(not);
+        await Context.SaveChangesAsync();
+
+        AccountNotification acc_not = new AccountNotification()
+        {
+            AccountId = acc.Id,
+            NotificationId = not.Id
+        };
+
+        Context.AccountNotifications.Add(acc_not);
+
+        ActionLog action = new ActionLog
+            {
+                ActionType = acc.Role == AccountRole.Barber ? ActionType.FireBarber : ActionType.FireManager,
+                ActorAccountId = Account.Id,
+                TargetAccountId = acc.Id,
+                Details = $"Аккаунт с ID {acc.Id} ({acc.Email}) уволен аккаунтом с ID {Account.Id} ({Account.Email}) по следующей причине: {reason}"
+            };
+
+        Context.ActionLogs.Add(action);
+
+        if (acc.Role == AccountRole.Barber)
+        {
+            var ordersToDecline = await Context.Orders
+                .Include(o => o.Account)
+                .Where(o => o.Barber.AccountId == acc.Id && (o.Status == OrderStatus.Pending || o.Status == OrderStatus.Waiting))
+                .ToListAsync();
+
+            if (ordersToDecline.Count <= 0)
+            {
+                acc.Role = AccountRole.User;
+                await Context.SaveChangesAsync();
+                return;
+            }
+
+            Notification not4user = new Notification()
+                {
+                    Type = NotificationType.General,
+                    Content = "Ваш заказ был отменён в связи с увольнением сотрудника. Просим прощения за предоставленные неудобства. Менеджер позвонит вам на указанный в профиле номер телефона."
+                };
+
+
+            Context.Notifications.Add(not4user);
+            await Context.SaveChangesAsync();
+
+            string phoneNums = "";
+
+            foreach (var o in ordersToDecline)
+            {
+                if (o.AccountId != null)
+                {
+                    AccountNotification user_not = new AccountNotification()
+                    {
+                        AccountId = o.AccountId.Value,
+                        NotificationId = not4user.Id
+                    };
+                    phoneNums += o.Phone == null ? o.Account.Phone + ", " : o.Phone + ", ";
+                    if (!await Context.AccountNotifications.AnyAsync(ac => ac.AccountId == user_not.AccountId && ac.NotificationId == user_not.NotificationId))
+                    {
+                        Context.AccountNotifications.Add(user_not);
+                    }
+                }
+                else
+                {
+                    phoneNums += o.Phone + ", ";
+                }
+
+                o.Status = OrderStatus.Declined;
+            }
+
+            phoneNums = phoneNums.Remove(phoneNums.Length - 3); // delete last 2 delimiter characters
+
+            Notification not4actor = new Notification() // actor is manager or admin here
+            {
+                Type = NotificationType.General,
+                Content = $"В следствие увольнения сотрудника было отменено заказов: {ordersToDecline.Count}. Перезвоните, пожалуйста, на следующие номера телефонов, чтобы предупредить клиентов об отмене их заказов: {phoneNums}"
+            };
+            Context.Notifications.Add(not4actor);
+            await Context.SaveChangesAsync();
+
+            AccountNotification actor_not = new AccountNotification()
+            {
+                AccountId = Account.Id,
+                NotificationId = not4actor.Id
+            };
+
+            Context.AccountNotifications.Add(actor_not);
+        }
+
+        acc.Role = AccountRole.User;
+        await Context.SaveChangesAsync();
+    }
+
+    private bool BarberHasThisManager(Account barber, Account manager)
+    {
+        var bb = Context.Barbers.Where(b => b.AccountId == barber.Id).FirstOrDefault();
+
+        return bb.Bshop.ManagerAccountId == manager.Id;
+    }
 }

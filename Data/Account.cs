@@ -52,6 +52,10 @@ namespace barberchainAPI.Data
         [Column("birth_date")]
         public DateOnly? BirthDate { get; set; }
 
+        [Required]
+        [Column("is_banned")]
+        public bool IsBanned { get; set; } = false;
+
         [MaxLength(15)]
         [Column("phone")]
         public string? Phone { get; set; }

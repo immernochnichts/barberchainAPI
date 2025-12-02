@@ -48,6 +48,7 @@ namespace barberchainAPI.Data
             modelBuilder.Entity<OrderJob>().ToTable("order_job");
             modelBuilder.Entity<ReviewReport>().ToTable("review_report");
             modelBuilder.Entity<ScheduleRequest>().ToTable("schedule_request");
+            modelBuilder.Entity<ActionLog>().ToTable("action_log");
 
             // Composite key for BarberJob
             modelBuilder.Entity<BarberJob>()
@@ -135,6 +136,16 @@ namespace barberchainAPI.Data
             modelBuilder.Entity<ScheduleRequest>(entity =>
             {
                 entity.Property(sr => sr.CreatedAt)
+                    .HasColumnType("timestamp without time zone")
+                    .HasConversion(
+                        v => v,
+                        v => DateTime.SpecifyKind(v, DateTimeKind.Local)
+                    );
+            });
+
+            modelBuilder.Entity<ActionLog>(entity =>
+            {
+                entity.Property(al => al.CreatedAt)
                     .HasColumnType("timestamp without time zone")
                     .HasConversion(
                         v => v,

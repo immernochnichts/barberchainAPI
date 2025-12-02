@@ -1,0 +1,53 @@
+﻿@namespace barberchainAPI.Components.Pages
+@using MudBlazor;
+@using System.Collections;
+@using barberchainAPI.Functional
+@using System.Security.Claims
+@inject BarberchainDbContext Context
+@inject ISnackbar Snackbar
+
+<MudDialog MaxWidth="MaxWidth.Small" FullWidth="true">
+    <TitleContent>Увольнение сотрудника</TitleContent>
+
+    <DialogContent>
+        <MudTextField Label="Укажите причину увольнения"
+                      @bind-Value="_reason"
+                      Lines="4"
+                      FullWidth="true"
+                      Required="true"
+                      Immediate="true"
+                      MaxLength="255"
+                      Margin="Margin.Dense" />
+
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="Cancel">
+            Отмена
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Confirm">
+            Подтвердить
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code
+{
+    [CascadingParameter]
+    IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string _reason;
+
+    private async Task Confirm()
+    {
+        Snackbar.Add("Сотрудник успешно уволен.", Severity.Success);
+
+        MudDialog.Close(_reason);
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}
