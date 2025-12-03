@@ -61,6 +61,7 @@
         // Update review with new values
         Review.Score = (short)_score;
         Review.Text = _text;
+        Review.ApprovedByModeration = false;
 
         MudDialog.Close(Review);
     }

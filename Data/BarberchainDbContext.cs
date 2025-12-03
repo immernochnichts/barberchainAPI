@@ -49,6 +49,7 @@ namespace barberchainAPI.Data
             modelBuilder.Entity<ReviewReport>().ToTable("review_report");
             modelBuilder.Entity<ScheduleRequest>().ToTable("schedule_request");
             modelBuilder.Entity<ActionLog>().ToTable("action_log");
+            modelBuilder.Entity<Complaint>().ToTable("complaint");
 
             // Composite key for BarberJob
             modelBuilder.Entity<BarberJob>()
@@ -153,9 +154,15 @@ namespace barberchainAPI.Data
                     );
             });
 
-            modelBuilder.Entity<Complaint>()
-                .Property(c => c.Status)
-                .HasColumnType("complaint_status");
+            modelBuilder.Entity<Complaint>(entity =>
+            {
+                entity.Property(c => c.CreatedAt)
+                    .HasColumnType("timestamp without time zone")
+                    .HasConversion(
+                        v => v,
+                        v => DateTime.SpecifyKind(v, DateTimeKind.Local)
+                    );
+            });
 
             modelBuilder.Entity<ScheduleRequest>()
                 .Property(sr => sr.Status)

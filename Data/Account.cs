@@ -36,7 +36,7 @@ namespace barberchainAPI.Data
 
         [Required]
         [Column("reg_time")]
-        public DateTime RegTime { get; set; }
+        public DateTime RegTime { get; set; } = DateTime.Now;
 
         [Column("profile_pic")]
         public byte[]? ProfilePic { get; set; }

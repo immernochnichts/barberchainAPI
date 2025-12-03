@@ -130,24 +130,15 @@
             return;
         }
 
-        // Registration successful → automatically log in
-        var loginContent = new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            { "email", regEmail },
-            { "password", regPassword }
-        });
+        // Registration successful automatically log in
+        bool ok = await JS.InvokeAsync<bool>("auth.login", regEmail, regPassword);
 
-        var loginResponse = await client.PostAsync("api/auth/login", loginContent);
-
-        if (!loginResponse.IsSuccessStatusCode)
+        if (!ok)
         {
-            // Fallback: if login fails, show message but keep user on login form
-            errors = new[] { "Регистрация успешна, но автоматический вход не удался. Войдите вручную." };
-            Toggle(); // switch to login form
+            errors = new[] { "Неверный адрес эл. почты или пароль" };
             return;
         }
 
-        // Clear form and navigate to home
         ClearForm();
         regPressed = false;
         form.ResetValidation();

@@ -37,16 +37,27 @@ else
             if (account.Role == AccountRole.Barber)
             {
                 <MudButtonGroup Style="background: darkblue;" Variant="Variant.Filled">
-                    <MudButton Style="color:white;" @onclick="OpenAdjustmentDialog">Расписание</MudButton>
+                    <MudButton Style="color:white;" Disabled="barber.BshopId == null" @onclick="OpenAdjustmentDialog">Изменить расписание</MudButton>
                     <MudButton Style="color:white;" @onclick="() => CurrentComponent = AccountComponent.OrdersToDeliver">Заказы мне</MudButton>
+                    <MudButton Style="color:white;" Disabled="barber.BshopId == null" @onclick="OpenComplaintCreationDialog">Пожаловаться</MudButton>
                 </MudButtonGroup>
             }
 
-            if (account.Role == AccountRole.Manager)
+            if (account.Role == AccountRole.Manager || account.Role == AccountRole.Admin)
             {
                 <MudButtonGroup Style="background: deeppink;" Variant="Variant.Filled">
                     <MudButton Style="color:white;" @onclick="() => CurrentComponent = AccountComponent.UserList">Список пользователей</MudButton>
                     <MudButton Style="color:white;" @onclick="() => CurrentComponent = AccountComponent.ScheduleRequests">Заявки на изменение расписания</MudButton>
+                    <MudButton Style="color:white;" @onclick="() => CurrentComponent = AccountComponent.ReportedReviews">Отзывы с жалобами</MudButton>
+                </MudButtonGroup>
+            }
+
+            if (account.Role == AccountRole.Admin)
+            {
+                <MudFlexBreak></MudFlexBreak>
+
+                <MudButtonGroup Style="background: darkturquoise;" Variant="Variant.Filled">
+                    <MudButton Style="color:white;" @onclick="() => CurrentComponent = AccountComponent.Complaints">Жалобы</MudButton>
                 </MudButtonGroup>
             }
         }
@@ -93,6 +104,16 @@ else
                 <OrdersToDeliver User="@user"></OrdersToDeliver>
                 break;
             }
+            case AccountComponent.Complaints:
+            {
+                <Complaints></Complaints>
+                break;
+            }
+            case AccountComponent.ReportedReviews:
+            {
+                <ReportedReviewsList></ReportedReviewsList>
+                break;
+            }
         }
 
     </MudContainer>
@@ -109,7 +130,9 @@ else
         Cart,
         UserList,
         ScheduleRequests,
-        OrdersToDeliver
+        OrdersToDeliver,
+        Complaints,
+        ReportedReviews
     }
 
     [Inject]
@@ -163,6 +186,7 @@ else
                 .Include(b => b.Account)
                 .Include(b => b.Images)
                 .Include(b => b.Bshop)
+                    .ThenInclude(b => b.Manager)
                 .FirstOrDefaultAsync(b => b.AccountId == id);
 
             jobs = await Context.BarberJobs
@@ -240,5 +264,16 @@ else
         };
 
         await DialogService.ShowAsync<CreateScheduleDialog>("Request Schedule Adjustment", parameters, options);
+    }
+    
+    private async Task OpenComplaintCreationDialog()
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.ExtraLarge, FullWidth = true };
+        var parameters = new DialogParameters<SendComplaintDialog>
+        {
+            { x => x.Sender, barber }
+        };
+
+        await DialogService.ShowAsync<SendComplaintDialog>("Complaint creation", parameters, options);
     }
 }

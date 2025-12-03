@@ -8,7 +8,7 @@
 <MudContainer Style="max-width:900px; width:max-content;" Class="mx-auto mt-4">
     <MudPaper Class="pa-4">
 
-        <MudText Typo="Typo.h5" Class="mb-4">User Management</MudText>
+        <MudText Typo="Typo.h5" Class="mb-4">Пользователи системы</MudText>
 
         <!-- Search + Filtering -->
         <MudStack Row="true" Spacing="2" Class="mb">
@@ -54,7 +54,7 @@
             </HeaderContent>
 
             <RowTemplate Context="u">
-                <MudTd DataLabel="ID">@u.Id</MudTd>
+                <MudTd Style=@(u.IsBanned ? "background-color:crimson;" : "") DataLabel="ID">@u.Id</MudTd>
                 <MudTd DataLabel="Email">@u.Email</MudTd>
                 <MudTd DataLabel="Lastname">@u.Lastname</MudTd>
                 <MudTd DataLabel="Restname">@u.Restname</MudTd>
@@ -128,12 +128,13 @@
     {
         var query = Context.Accounts.AsQueryable();
 
-        // Filtering example (optional)
+        // Filtering 
         if (!string.IsNullOrWhiteSpace(searchString))
         {
-            query = query.Where(x => x.Email.Contains(searchString)
+            query = query.Where(x => (x.Email.Contains(searchString)
                                   || x.Restname.Contains(searchString)
-                                  || x.Lastname.Contains(searchString));
+                                  || x.Lastname.Contains(searchString))
+                                  && (selectedRole == null ? true : x.Role == selectedRole));
         }
 
         // Sorting
@@ -244,8 +245,16 @@
 
     private async Task ToggleBanned(Account acc)
     {
-        acc.IsBanned = !acc.IsBanned;
-        await Context.SaveChangesAsync();
+        bool? confirmed = await DialogService.ShowMessageBox(
+            acc.IsBanned ? "Подтвердите разблокировку" : "Подтвердите блокировку",
+            acc.IsBanned ? "Разблокировать пользователя?" : "Заблокировать пользователя?",
+            yesText: "Подтвердить", cancelText: "Отмена");
+
+        if (confirmed != null && confirmed == true)
+        {
+            acc.IsBanned = !acc.IsBanned;
+            await Context.SaveChangesAsync();
+        }
     }
 
     private async Task Fire(Account acc)
@@ -356,6 +365,15 @@
             };
 
             Context.AccountNotifications.Add(actor_not);
+        }
+        else // firing a manager
+        {
+            var bshops = await Context.Barbershops.Where(bs => bs.ManagerAccountId == acc.Id).ToListAsync();
+
+            foreach (var bs in bshops)
+            {
+                bs.ManagerAccountId = Account.Id;
+            }
         }
 
         acc.Role = AccountRole.User;

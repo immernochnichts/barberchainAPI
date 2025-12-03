@@ -101,7 +101,6 @@ namespace barberchainAPI.Controllers
                 Restname = string.IsNullOrWhiteSpace(request.Restname) ? null : request.Restname,
                 Email = request.Email,
                 Hash = hashBytes,
-                RegTime = DateTime.UtcNow,
                 Role = AccountRole.User
             };
 

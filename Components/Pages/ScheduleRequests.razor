@@ -62,7 +62,7 @@
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="mx-auto mt-4">
     <MudPaper Class="pa-4">
-        <MudText Typo="Typo.h5" Class="mb-4">Schedule Adjustment Requests</MudText>
+        <MudText Typo="Typo.h5" Class="mb-4">Заявки на изменение расписания</MudText>
 
         @if (requests == null)
         {
@@ -70,7 +70,7 @@
         }
         else if (!requests.Any())
         {
-            <MudText>No requests found.</MudText>
+            <MudText>Заявок нет</MudText>
         }
         else
         {

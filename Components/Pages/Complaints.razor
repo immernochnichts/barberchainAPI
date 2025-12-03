@@ -1,0 +1,106 @@
+﻿@page "/admin/complaints"
+@using barberchainAPI.Data
+@inject BarberchainDbContext Context
+
+<MudPopoverProvider></MudPopoverProvider>
+
+<MudPaper Class="pa-4" Elevation="4">
+
+    <MudText Typo="Typo.h5" Class="mb-4">Жалобы на менеджеров</MudText>
+
+    <MudGrid>
+        <MudItem xs="12" sm="6">
+            <MudSelect T="string" Label="сортировка" @bind-Value="SelectedSort">
+                <MudSelectItem Value=@("mostReported") >наибольшее число жалоб</MudSelectItem>
+                <MudSelectItem Value=@("leastReported")>наименьшее число жалоб</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+
+    <MudExpansionPanels Class="mt-4" Multiple="true">
+
+        @foreach (var group in SortedGroups)
+        {
+            <MudStack Row="true" Style="max-width: 90%;">
+                <MudAvatar>
+                    <MudImage Src=@group.TargetAvatar></MudImage>
+                </MudAvatar>
+                <MudExpansionPanel Text="@($"{group.TargetName} — {group.Complaints.Count} жалоб")">
+
+                    <MudList T="Complaint" Dense="false">
+
+                        @foreach (var c in group.Complaints)
+                        {
+                            <MudListItem>
+                                <MudText>
+                                    <b>От:</b> @c.Sender.Lastname @c.Sender.Restname<br />
+                                    <b>Жалоба:</b> @c.Message <br />
+                                    <b>Дата и время:</b> @c.CreatedAt
+                                </MudText>
+                                <MudIconButton Class="ml-auto" Icon="@Icons.Material.Filled.Delete"
+                                            Color="Color.Error"
+                                            OnClick="@(() => DeleteComplaint(c))" />
+                            </MudListItem>
+
+                            <MudDivider />
+                        }
+
+                    </MudList>
+
+                </MudExpansionPanel>
+            </MudStack>
+        }
+
+    </MudExpansionPanels>
+</MudPaper>
+
+@code {
+    private List<Complaint> ComplaintList = new();
+    private string SelectedSort = "mostReported"; // default
+
+    protected override async Task OnInitializedAsync()
+    {
+        ComplaintList = await Context.Complaints
+            .Include(c => c.Target)
+            .Include(c => c.Sender)
+            .ToListAsync();
+    }
+
+    private class ComplaintGroup
+    {
+        public string TargetAvatar { get; set; }
+        public string TargetName { get; set; }
+        public List<Complaint> Complaints { get; set; }
+    }
+
+    private IEnumerable<ComplaintGroup> Groups =>
+        ComplaintList
+        .GroupBy(c => new { c.AccountTargetId, c.Target.Lastname, c.Target.Restname, c.Target.ProfilePic})
+        .Select(g => new ComplaintGroup
+        {
+            TargetName = g.Key.Lastname + g.Key.Restname,
+            Complaints = g.OrderByDescending(x => x.CreatedAt).ToList(),
+            TargetAvatar = AccountPage.GetImageSrc(g.Key.ProfilePic)
+        });
+
+    private IEnumerable<ComplaintGroup> SortedGroups =>
+        SelectedSort switch
+        {
+            "mostReported" => Groups.OrderByDescending(g => g.Complaints.Count),
+            "leastReported" => Groups.OrderBy(g => g.Complaints.Count),
+            _ => Groups
+        };
+
+    private async Task DeleteComplaint(Complaint c)
+    {
+        Context.Complaints.Remove(c);
+        await Context.SaveChangesAsync();
+
+        ComplaintList = await Context.Complaints
+            .Include(c => c.Target)
+            .Include(c => c.Sender)
+            .ToListAsync();
+
+        StateHasChanged();
+    }
+ }

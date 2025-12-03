@@ -48,13 +48,13 @@
                                            OnClick="@(() => DeleteReview(r))" />
                         </MudStack>
                     }
-                    else if (user != null && userId == r.Barber.Bshop.ManagerAccountId)
+                    else if (user != null && userId == r.Barber.Bshop.ManagerAccountId || account.Role == AccountRole.Admin)
                     {
                         <MudIconButton Class="ml-auto" Icon="@Icons.Material.Filled.Delete"
                                            Color="Color.Error"  
                                            OnClick="@(() => DeleteReview(r))" />
                     }
-                    else
+                    else if (!r.ApprovedByModeration)
                     {
                         <MudButton Class="ml-auto" Disabled="r.AlreadyReported" Style="width: fit-content;" Color="Color.Error" @onclick="() => ReportReview(r)">
                             Пожаловаться
@@ -83,6 +83,8 @@ else
     public ClaimsPrincipal? user { get; set; }
 
     private int userId;
+
+    private Account account;
 
     private List<Review> ReviewList { get; set; }
 
@@ -116,8 +118,11 @@ else
             }
         }
 
-        if (user != null && user.Claims.Any())
+        if (user != null && user.Identity.IsAuthenticated)
+        {
             userId = int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
+            account = await Context.Accounts.Where(a => a.Id == userId).FirstOrDefaultAsync();
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -196,7 +201,7 @@ else
     {
         string reporterId;
 
-        if (user.Identity?.IsAuthenticated == true && !Context.ReviewReports.Where(rr => rr.ReporterId == userId.ToString()).Any())
+        if (user.Identity?.IsAuthenticated == true && !Context.ReviewReports.Where(rr => rr.ReporterId == userId.ToString() && rr.ReviewId == r.Id).Any())
         {
             reporterId = user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value;
 

@@ -34,7 +34,7 @@ namespace barberchainAPI.Data
 
         [Required]
         [Column("fk_manager_account")]
-        public int ManagerAccountId { get; set; }
+        public int? ManagerAccountId { get; set; }
         [ForeignKey(nameof(ManagerAccountId))]
         public Account Manager { get; set; }
 

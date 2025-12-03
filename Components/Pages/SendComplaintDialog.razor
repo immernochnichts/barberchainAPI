@@ -1,0 +1,68 @@
+﻿@namespace barberchainAPI.Components.Pages
+@using MudBlazor;
+@using System.Collections;
+@using barberchainAPI.Functional
+@using System.Security.Claims
+@inject BarberchainDbContext Context
+@inject ISnackbar Snackbar
+
+<MudDialog MaxWidth="MaxWidth.Small" FullWidth="true">
+    <TitleContent>Создание жалобы</TitleContent>
+
+    <DialogContent>
+        <MudText>
+            Вы подаёте жалобу на своего менеджера @Sender.Bshop.Manager.Lastname @Sender.Bshop.Manager.Restname
+        </MudText>
+
+        <MudTextField Label="Укажите содержание жалобы"
+                      @bind-Value="_content"
+                      Lines="4"
+                      FullWidth="true"
+                      Required="true"
+                      Immediate="true"
+                      MaxLength="255"
+                      Margin="Margin.Dense" />
+
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="Cancel">
+            Отмена
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Confirm">
+            Подтвердить
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code
+{
+    [CascadingParameter]
+    IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public Barber Sender { get; set; }
+
+    private string _content;
+
+    private async Task Confirm()
+    {
+        Complaint c = new Complaint()
+        {
+            AccountSenderId = Sender.AccountId.Value,
+            AccountTargetId = Sender.Bshop.ManagerAccountId.Value,
+            Message = _content
+        };
+        Context.Complaints.Add(c);
+        await Context.SaveChangesAsync();
+
+        Snackbar.Add("Жалоба успешно подана.", Severity.Success);
+        MudDialog.Close();
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

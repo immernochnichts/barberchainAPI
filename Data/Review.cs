@@ -41,6 +41,9 @@ namespace barberchainAPI.Data
         [Column("created_at")]
         public DateTime CreatedAt { get; set; }
 
+        [Required]
+        [Column("approved_by_moderation")]
+        public bool ApprovedByModeration { get; set; }
 
         [NotMapped]
         public bool AlreadyReported { get; set; } = false;

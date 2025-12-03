@@ -32,7 +32,6 @@ namespace barberchainAPI
                     o.MapEnum<AccountRole>("account_role");
                     o.MapEnum<OrderMethod>("order_method");
                     o.MapEnum<OrderStatus>("order_status");
-                    o.MapEnum<ComplaintStatus>("complaint_status");
                     o.MapEnum<ScheduleRequestStatus>("schedule_request_status");
                     o.MapEnum<ActionType>("action_type");
                     o.MapEnum<NotificationType>("notification_type");

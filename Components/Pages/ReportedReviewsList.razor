@@ -1,0 +1,118 @@
+﻿@namespace barberchainAPI.Components.Pages
+@inject BarberchainDbContext Context
+@using MudBlazor
+@using barberchainAPI.Components.Pages;
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+@if (ReviewList?.Count > 0)
+{
+    <MudPaper Elevation="3" Class="p-6 rounded-lg">
+        <MudStack Spacing="3">
+            <MudText Typo="Typo.h4">Отзывы, на которые есть жалобы</MudText>
+            <MudDivider Class="mb-2" />
+
+            @foreach (var r in ReviewList)
+            {
+                <MudCard Elevation="2" Class="mb-3">
+                    <MudCardContent>
+                        <MudStack Spacing="1">
+                            <MudStack Direction="Row" AlignItems="AlignItems.Start" Spacing="2">
+                                <MudRating SelectedValue="@((int)r.Score)" MaxValue="5" ReadOnly="true" Size="Size.Medium" />
+                                <a href=@($"account/{r.Barber?.AccountId}")><MudText Style="color: cadetblue" Typo="Typo.subtitle1">@r.Barber?.Account?.Lastname @r.Barber?.Account?.Restname</MudText></a>
+                            </MudStack>
+
+                            <MudText Typo="Typo.body2">@r.Text</MudText>
+
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                @r.CreatedAt.ToString("dd MMMM yyyy")
+                            </MudText>
+
+                            <MudStack Row="true">
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                               Color="Color.Error"
+                                               OnClick="@(() => DeleteReview(r))" />
+                                <MudTooltip Text="Обнулить жалобы (отзыв не содержит ничего неприличного)">
+                                    <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowDown"
+                                                   Color="Color.Surface"
+                                                   OnClick="@(() => ResetReportCount(r))" />
+                                </MudTooltip>
+                            </MudStack>
+
+                        </MudStack>
+                    </MudCardContent>
+                </MudCard>
+            }
+        </MudStack>
+    </MudPaper>
+}
+else
+{
+    <MudPaper Elevation="3" Class="p-4 rounded-lg" Style="text-align:center;">
+        <MudIcon Icon="@Icons.Material.Filled.Reviews" Color="Color.Secondary" Size="Size.Large" />
+        <MudText Typo="Typo.h6" Class="mt-2">Нет отзывов</MudText>
+        <MudText Typo="Typo.body2">Список отзывов с жалобами пуст</MudText>
+    </MudPaper>
+}
+
+@code {
+    [Parameter]
+    public int id { get; set; }
+
+    private List<Review> ReviewList { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        ReviewList = await Context.Reviews
+            .Where(r => r.Reports.Count() > 0)
+            .Include(r => r.Reports)
+            .Include(r => r.Barber)
+                .ThenInclude(b => b.Account)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync();
+    }
+
+    async Task DeleteReview(Review r)
+    {
+        bool? confirmed = await DialogService.ShowMessageBox(
+            "Подтвердите удаление",
+            $"Удалить этот отзыв?",
+            yesText: "Удалить", cancelText: "Отмена");
+
+        if (confirmed == true)
+        {
+            Context.Reviews.Remove(r);
+            await Context.SaveChangesAsync();
+
+            ReviewList.Remove(r);
+            StateHasChanged();
+
+            Snackbar.Add("Отзыв удалён", Severity.Info);
+        }
+    }
+
+    async Task ResetReportCount(Review r)
+    {
+        foreach (var rep in r.Reports)
+        {
+            r.Reports.Remove(rep);
+        }
+
+        r.ApprovedByModeration = true;
+
+        await Context.SaveChangesAsync();
+
+        ReviewList = await Context.Reviews
+            .Where(r => r.Reports.Count() > 0)
+            .Include(r => r.Reports)
+            .Include(r => r.Barber)
+                .ThenInclude(b => b.Account)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync();
+
+        StateHasChanged();
+    }
+}
