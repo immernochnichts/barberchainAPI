@@ -37,8 +37,9 @@ else
             if (account.Role == AccountRole.Barber)
             {
                 <MudButtonGroup Style="background: darkblue;" Variant="Variant.Filled">
-                    <MudButton Style="color:white;" Disabled="barber.BshopId == null" @onclick="OpenAdjustmentDialog">Изменить расписание</MudButton>
+                    <MudButton Style="color:white;" Disabled="barber!.BshopId == null" @onclick="OpenAdjustmentDialog">Изменить расписание</MudButton>
                     <MudButton Style="color:white;" @onclick="() => CurrentComponent = AccountComponent.OrdersToDeliver">Заказы мне</MudButton>
+                    <MudButton Style="color:white;" @onclick="() => CurrentComponent = AccountComponent.PhoneOrderPlacement">Оформить телефонный заказ</MudButton>
                     <MudButton Style="color:white;" Disabled="barber.BshopId == null" @onclick="OpenComplaintCreationDialog">Пожаловаться</MudButton>
                 </MudButtonGroup>
             }
@@ -114,6 +115,11 @@ else
                 <ReportedReviewsList></ReportedReviewsList>
                 break;
             }
+            case AccountComponent.PhoneOrderPlacement:
+            {
+                <PhoneOrderPlacement Barber="@barber"></PhoneOrderPlacement>
+                break;
+            }
         }
 
     </MudContainer>
@@ -132,23 +138,24 @@ else
         ScheduleRequests,
         OrdersToDeliver,
         Complaints,
-        ReportedReviews
+        ReportedReviews,
+        PhoneOrderPlacement
     }
 
     [Inject]
-    protected BarberchainDbContext Context { get; set; }
+    protected BarberchainDbContext Context { get; set; } = default!;
 
     [Inject]
-    NavigationManager Navigation { get; set; }
+    NavigationManager Navigation { get; set; } = default!;
 
     [Inject]
-    AuthenticationStateProvider AuthStateProvider { get; set; }
+    AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
 
     public AccountComponent CurrentComponent { get; set; } = AccountComponent.Profile;
 
     [Parameter]
     [SupplyParameterFromQuery(Name = "component")]
-    public string ComponentQuery { get; set; }
+    public string ComponentQuery { get; set; } = default!;
 
     [Parameter] public int id { get; set; }
     protected bool IsOwner = false;
@@ -187,11 +194,13 @@ else
                 .Include(b => b.Images)
                 .Include(b => b.Bshop)
                     .ThenInclude(b => b.Manager)
+                // .Include(b => b.Bshop)
+                //     .ThenInclude(bs => bs.Barbers)
                 .FirstOrDefaultAsync(b => b.AccountId == id);
 
             jobs = await Context.BarberJobs
                 .Include(x => x.Job)
-                .Where(x => x.BarberId == barber.Id)
+                .Where(x => x.BarberId == barber!.Id)
                 .ToListAsync();
         }
     }

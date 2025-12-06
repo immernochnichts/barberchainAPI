@@ -3,12 +3,15 @@
 @using System.Collections;
 @using barberchainAPI.Data
 @using barberchainAPI.Functional
+@using barberchainAPI.Functional.Services
 @using System.Security.Claims
 @inject CartService CartService
 @inject IJSRuntime JS
 @inject BarberchainDbContext Context
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
+@inject ICreateScheduleService CreateScService
+
 
 <style>
     .timeline-wrapper {
@@ -105,20 +108,20 @@
 </MudDialog>
 
 @code {
-     /*
-     * 1. Barber can alter schedule for 30 upcoming days.
-     * 2. If barber makes unavailable a time block that's a part of some order, then, if schedule request is approved by the manager, the order is declined and the user is notified.
-     * 3. Barber can send only one schedule adjustment request. If he sends another one for the same day - the schedule of the previous day will be altered.
-     * 4. When booking, user sees the schedule of the schedule request for that day. The orders that are to decline in the request must all be marked unavailable - because we don't know
-     * if request will be approved or not. If it won't be approved, we have a change of overlapping orders if we don't make times they booked unavailable. Later, when schedule request gets approved,
-     * the times that are parts of declined orders will become available because we know the order was declined and won't be restored.
-     */
+        /*
+        * 1. Barber can alter schedule for 30 upcoming days.
+        * 2. If barber makes unavailable a time block that's a part of some order, then, if schedule request is approved by the manager, the order is declined and the user is notified.
+        * 3. Barber can send only one schedule adjustment request. If he sends another one for the same day - the schedule of the previous day will be altered.
+        * 4. When booking, user sees the schedule of the schedule request for that day. The orders that are to decline in the request must all be marked unavailable - because we don't know
+        * if request will be approved or not. If it won't be approved, we have a change of overlapping orders if we don't make times they booked unavailable. Later, when schedule request gets approved,
+        * the times that are parts of declined orders will become available because we know the order was declined and won't be restored.
+        */
 
 
-    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; }
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
 
-    [Parameter] public Barber Barber { get; set; }
-    [Parameter] public ClaimsPrincipal User { get; set; }
+    [Parameter] public Barber Barber { get; set; } = default!;
+    [Parameter] public ClaimsPrincipal User { get; set; } = default!;
 
     private string Message { get; set; } = "";
 
@@ -142,6 +145,9 @@
     private List<Order> orders = new();
     private List<Order> ordersToDecline = new();
     private Dictionary<Tuple<int, int>, Order> idxRangeToOrder = new();
+    private ScheduleRequest? request;
+    private string? error;
+    private BitArray AtuPattern = default!;
 
     private async Task LoadAtuPattern()
     {
@@ -149,43 +155,15 @@
 
         var date = DateOnly.FromDateTime(_selectedDate.Value);
 
-        var bsd = await Context.BarberScheduleDays
-            .Where(x => x.Date == date && x.BarberId == Barber.Id)
-            .FirstOrDefaultAsync();
+        var result = await CreateScService.LoadBarberScheduleAsync(Barber.Id, date);
 
-        AtuPattern = bsd != null ? new BitArray(bsd.AtuPattern) : new BitArray(Barber.Bshop.DefaultSchedule);
-
-        orders = await Context.Orders
-            .Where(o =>
-                DateOnly.FromDateTime(o.AppointedTime) == date &&
-                o.BarberId == Barber.Id &&
-                (o.Status == OrderStatus.Pending || o.Status == OrderStatus.Waiting))
-            .Include(o => o.OrderJobs)
-            .ToListAsync();
-
-        occupiedIndexes.Clear();
-
-        foreach (var order in orders)
-        {
-            int startIndex =
-                order.AppointedTime.Hour * 4 +
-                order.AppointedTime.Minute / 15;
-
-            int totalDuration = order.OrderJobs.Sum(j => (int)j.Job.DurationAtu);
-
-            idxRangeToOrder.Add(new Tuple<int, int>(startIndex, startIndex + totalDuration - 1), order);
-
-            for (int i = 0; i < totalDuration; i++)
-            {
-                int idx = startIndex + i;
-                if (idx >= 0 && idx < 96)
-                    occupiedIndexes.Add(idx);
-            }
-        }
+        AtuPattern = result.AtuPattern;
+        orders = result.Orders;
+        occupiedIndexes = result.OccupiedIndexes;
+        idxRangeToOrder = result.IndexRangeToOrder;
 
         StateHasChanged();
     }
-
 
     private void ToggleSlot(int index)
     {
@@ -194,22 +172,6 @@
     }
 
     private void Cancel() => MudDialog.Cancel();
-
-    private ScheduleRequest? request;
-    private string? error;
-    private BitArray AtuPattern;
-
-    private bool BitArraysEqual(BitArray a, BitArray b)
-    {
-        if (a == null || b == null) return false;
-        if (a.Length != b.Length) return false;
-
-        for (int i = 0; i < a.Length; i++)
-            if (a[i] != b[i])
-                return false;
-
-        return true;
-    }
 
     private async Task Submit()
     {
@@ -224,74 +186,51 @@
             return;
         }
 
-        var bsd = await Context.BarberScheduleDays
-            .Where(d => d.Date == DateOnly.FromDateTime(_selectedDate.Value) && d.BarberId == Barber.Id)
-            .Select(d => d.AtuPattern)
-            .FirstOrDefaultAsync();
-
-        if ((bsd != null && BitArraysEqual(bsd, AtuPattern)) && ordersToDecline.Count == 0 || BitArraysEqual(AtuPattern, Barber.Bshop.DefaultSchedule))
+        var createOrReplaceReq = new CreateReplaceSchedDto()
         {
-            error = "Вы не внесли никаких изменений";
+            AtuPattern = AtuPattern,
+            Barber = Barber,
+            Message = Message,
+            OrdersToDecline = ordersToDecline,
+            SelectedDate = DateOnly.FromDateTime(_selectedDate.Value),
+            UserId = int.Parse(User.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value)
+        };
+
+        var createOrReplaceResult = await CreateScService.CreateOrReplaceScheduleRequest(createOrReplaceReq);
+
+        if (createOrReplaceResult.Request == null)
+        {
+            error = createOrReplaceResult.Error;
             return;
         }
 
-        var userId = int.Parse(User.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
-        var barberId = await Context.Barbers.Where(b => b.AccountId == userId).Select(b => b.Id).FirstOrDefaultAsync();
-        var requestDate = DateOnly.FromDateTime(_selectedDate.Value);
-
-        var alreadyExistingRequest = await Context.ScheduleRequests.Where(sr => sr.RequestDate == requestDate && sr.BarberId == barberId).FirstOrDefaultAsync();
-
-        if (alreadyExistingRequest != null)
-        {
-            alreadyExistingRequest.AtuPattern = AtuPattern;
-            alreadyExistingRequest.Message = Message;
-            alreadyExistingRequest.Status = ScheduleRequestStatus.Pending;
-            alreadyExistingRequest.OrderIdsToDecline = string.Join(" ", ordersToDecline.Select(o => o.Id.ToString()));
-        }
-        else
-        {
-            request = new ScheduleRequest
-            {
-                BarberId = barberId,
-                RequestDate = requestDate,
-                AtuPattern = AtuPattern,
-                Message = Message,
-                Status = ScheduleRequestStatus.Pending
-            };
-
-            request.OrderIdsToDecline = string.Join(" ", ordersToDecline.Select(o => o.Id.ToString()));
-
-            Context.ScheduleRequests.Add(request);
-        }
-
-
-        await Context.SaveChangesAsync();
-
-        await NotifyManager();
+        await CreateScService.NotifyManagerAsync(Barber, _selectedDate.Value);
 
         Snackbar.Add("Запрос на изменение расписания подан", Severity.Info);
         MudDialog.Close(DialogResult.Ok(true));
     }
 
-    private async Task NotifyManager()
+    private async Task CancelChanges()
     {
-        var not = new Notification
-            {
-                Type = NotificationType.System,
-                Content = $"Запрос на изменение расписания от {Barber.Account.Lastname} {Barber.Account.Restname} за {_selectedDate?.ToString("yyyy-MM-dd")}"
-            };
+        if (_selectedDate == null)
+        {
+            error = "Выберите дату";
+            return;
+        }
 
-        Context.Notifications.Add(not);
-        await Context.SaveChangesAsync();
+        CancelChangesDto dto = new CancelChangesDto()
+        {
+            SelectedDate = DateOnly.FromDateTime(_selectedDate!.Value),
+            AtuPattern = AtuPattern,
+            Barber = Barber,
+            OccupiedIndexes = occupiedIndexes,
+            Orders = orders,
+            OrdersToDecline = ordersToDecline
+        };
 
-        var acc_not = new AccountNotification
-            {
-                AccountId = Barber.Bshop.ManagerAccountId.Value,
-                NotificationId = not.Id
-            };
+        await CreateScService.CancelChangesAsync(dto);
 
-        Context.AccountNotifications.Add(acc_not);
-        await Context.SaveChangesAsync();
+        StateHasChanged();
     }
 
     private bool _isDragging = false;
@@ -347,35 +286,4 @@
         _isDragging = false;
     }
 
-    private async Task CancelChanges()
-    {
-        Console.WriteLine("CancelChanges invoked");
-
-        var bsd = await Context.BarberScheduleDays
-            .Where(x => x.Date == DateOnly.FromDateTime(SelectedDate.Value) && x.BarberId == Barber.Id)
-            .FirstOrDefaultAsync();
-
-        AtuPattern.SetAll(true);
-        var sched = bsd != null ? bsd.AtuPattern : Barber.Bshop.DefaultSchedule;
-        AtuPattern.And(sched);
-        ordersToDecline.Clear();
-
-        foreach (var order in orders)
-        {
-            int startIndex =
-                order.AppointedTime.Hour * 4 +
-                order.AppointedTime.Minute / 15;
-
-            int totalDuration = order.OrderJobs.Sum(j => (int)j.Job.DurationAtu);
-
-            for (int i = 0; i < totalDuration; i++)
-            {
-                int idx = startIndex + i;
-                if (idx >= 0 && idx < 96)
-                    occupiedIndexes.Add(idx);
-            }
-        }
-
-        StateHasChanged();
-    }
 }

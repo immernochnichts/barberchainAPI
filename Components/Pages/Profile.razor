@@ -4,11 +4,15 @@
 @using System.Security.Claims
 @using barberchainAPI.Functional;
 @using Microsoft.AspNetCore.Components.Authorization
+@using barberchainAPI.Functional.Services
 @inject IDialogService DialogService
 @inject BarberchainDbContext Context
 @inject CartService CartService
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
+@inject NavigationManager Navigation
+@inject IProfileService ProfileService
+
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -48,7 +52,7 @@ else
                 <MudText Typo="Typo.h6">обо мне:</MudText>
                 <MudText Typo="Typo.subtitle1" Class="text-secondary">@account.Bio</MudText>
                 <MudText Typo="Typo.h6">день рождения: @account.BirthDate</MudText>
-                @if (user != null && user.Identity.IsAuthenticated && account.Id == int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value))
+                @if (user != null && user.Identity!.IsAuthenticated && account.Id == int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value))
                 {
                     <MudText Typo="Typo.subtitle2" Align="Align.Start">электронная почта: @account.Email</MudText>
                     <MudText Typo="Typo.subtitle2" Align="Align.Start">номер телефона: @account.Phone</MudText>
@@ -135,7 +139,7 @@ else
 
             <MudDivider Class="my-4" />
 
-            <MudButton @onclick="OpenDialogAsync" Variant="Variant.Filled" Color="Color.Primary">
+            <MudButton @onclick="OpenBookDialogAsync" Variant="Variant.Filled" Color="Color.Primary">
                 Забронировать
             </MudButton>
 
@@ -198,9 +202,7 @@ else
     public ClaimsPrincipal? user { get; set; }
 
     private Cart? cart;
-
     private bool _loaded = false;
-
     private bool IsEditing = false;
 
     private Account EditableAccount = new(); // copy of account data for editing
@@ -216,7 +218,7 @@ else
     {
         EditableAccount = new Account
         {
-            Id = account.Id,
+            Id = account!.Id,
             Lastname = account.Lastname,
             Restname = account.Restname,
             Bio = account.Bio,
@@ -234,7 +236,7 @@ else
 
     async Task SaveEditing()
     {
-        account.Lastname = EditableAccount.Lastname;
+        account!.Lastname = EditableAccount.Lastname;
         account.Restname = EditableAccount.Restname;
         account.Bio = EditableAccount.Bio;
         account.BirthDate = EditableAccount.BirthDate;
@@ -269,50 +271,6 @@ else
 
     protected DateTime? _selectedDate = DateTime.Today;
 
-    public async Task<BitArray> GetAvailabilityForDay(int barberId, DateTime? day)
-    {
-        var schedRequest = await Context.ScheduleRequests   // first check schedule requests
-            .Where(a => a.BarberId == barberId && a.RequestDate == DateOnly.FromDateTime(day.Value) && a.Status == ScheduleRequestStatus.Pending)
-            .FirstOrDefaultAsync();
-
-        var availability = schedRequest?.AtuPattern;
-
-        if (availability != null)
-        {
-            foreach (var strId in schedRequest.OrderIdsToDecline.Split(" ", StringSplitOptions.RemoveEmptyEntries))
-            {
-                Console.WriteLine("Current order ID: " + strId);
-
-                int orderId = int.Parse(strId);
-
-                Console.WriteLine("Current order ID after parsing: " + strId);
-
-                var order = await Context.Orders.Include(o => o.OrderJobs).Where(o => o.Id == orderId).FirstOrDefaultAsync();
-                var declinedOrderJobs = order.OrderJobs.Select(oj => oj.Job);
-                var orderDuration = declinedOrderJobs.Select(oj => (int)oj.DurationAtu).Sum();
-
-                int startIdx = order.AppointedTime.Hour * 4 + order.AppointedTime.Minute / 15;
-                int endIdx = startIdx + orderDuration - 1;
-
-                for (int i = startIdx; i <= endIdx; i++)
-                {
-                    availability[i] = false;    // mark times booked by potentially declined orders as unavailable to avoid overlapping
-                }
-            }
-
-            return availability;
-        }
-        else
-        {
-            availability = await Context.BarberScheduleDays // then check schedule days
-                .Where(a => a.BarberId == barberId && a.Date == DateOnly.FromDateTime(day.Value))
-                .Select(a => a.AtuPattern)
-                .FirstOrDefaultAsync();
-
-            return availability ?? new BitArray(Enumerable.Repeat<bool>(false, 96).ToArray());
-        }
-    }
-
     protected override async Task OnAfterRenderAsync(bool firstTime)
     {
         if (firstTime)
@@ -322,23 +280,33 @@ else
         }
     }
 
-    protected async Task OpenDialogAsync()
+    private async Task OpenBookDialogAsync()
     {
-        AtuPattern = await GetAvailabilityForDay(barber.Id, _selectedDate);
+        AtuPattern = await ProfileService.GetAvailabilityForDayAsync(barber!.Id, _selectedDate);
+        var jobSet = cart!.JobSet.Intersect(barber.BarberJobs.Select(x => x.Job));
 
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.ExtraExtraLarge, FullWidth = true };
         var params_ = new DialogParameters<BarberPageDialog> {
             { x => x.AtuPattern, AtuPattern }, 
             { y => y.SelectedDate, _selectedDate}, 
             { z => z.Barber, barber },
-            { w => w.user, user } };
+            { w => w.user, user },
+            { u => u.JobSet, jobSet } };
 
-        await DialogService.ShowAsync<BarberPageDialog>("Book time", params_, options);
+        var dialog = await DialogService.ShowAsync<BarberPageDialog>("Book time", params_, options);
+        var dialogRes = await dialog.Result;
+        if (dialogRes != null && !dialogRes.Canceled)
+        {
+            var createdOrder = dialogRes.Data as Order;
+
+            Navigation.NavigateTo($"/payment/{createdOrder!.Id}");
+            Navigation.Refresh();
+        }
     }
 
     private async Task OnServiceClicked(Job j)
     {
-        if (cart.JobSet.Contains(j))
+        if (cart!.JobSet.Contains(j))
         {
             await CartService.RemoveItem(j.Id);
         }
@@ -352,21 +320,18 @@ else
         StateHasChanged();
     }
 
-    private MudForm _form;
-    private MudExpansionPanel reviewPanel;
+    private MudForm _form = default!;
+    private MudExpansionPanel reviewPanel = default!;
     private bool isFormValid;
-
     private ReviewModel reviewModel = new ReviewModel();
-
     private List<Order> userOrders = new List<Order>();
-
-    private ReviewsForBarber reviewsForBarber;
+    private ReviewsForBarber reviewsForBarber = default!;
 
     protected override async Task OnInitializedAsync()
     {
-        if (user is null || !user.Claims.Any())
+        if (user is null || !user.Identity!.IsAuthenticated)
         {
-            userOrders = null;
+            userOrders = null!;
             return;
         }
 
@@ -388,65 +353,27 @@ else
 
         var userId = int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
 
-        if (!await Context.Orders.AnyAsync(o => o.BarberId == barber.Id && o.AccountId == userId && o.Status == OrderStatus.Complete))
+        if (!await Context.Orders.AnyAsync(o => o.BarberId == barber!.Id && o.AccountId == userId && o.Status == OrderStatus.Complete))
         {
             Snackbar.Add("Вы не можете оставить отзыв о сотруднике, если у вас нет с ним ни единого выполненного заказа", Severity.Info);
             return;
         }
 
-        if (await Context.Reviews.AnyAsync(r => r.BarberId == barber.Id && r.AccountId == userId))
+        var msg = await ProfileService.SubmitReviewAsync(new SubmitReviewDto()
         {
-            barber.ReviewSum += reviewModel.Score;
-            barber.ReviewCount += 1;
+            Barber = barber!,
+            ReviewModel = reviewModel,
+            UserId = userId
+        });
 
-            var review = new Review
-                {
-                    Score = (short)reviewModel.Score,
-                    Text = reviewModel.Text,
-                    OrderId = reviewModel.OrderId == 0 ? null : reviewModel.OrderId,
-                    AccountId = userId,
-                    BarberId = barber.Id,
-                    CreatedAt = DateTime.Now
-                };
-
-            // adding review to the db
-            Context.Reviews.Add(review);
-            await Context.SaveChangesAsync();
-
-            // sending notification to the barber
-            var not = new Notification
-            {
-                Type = NotificationType.General,
-                Content = "Пользователь оставил новый отзыв о Вас:\n\n" + review.Text
-            };
-
-            Context.Notifications.Add(not);
-            await Context.SaveChangesAsync();
-
-            var acc_not = new AccountNotification
-            {
-                AccountId = barber.AccountId.Value,
-                NotificationId = not.Id
-            };
-
-            Context.AccountNotifications.Add(acc_not);
-            await Context.SaveChangesAsync();
-
-            reviewModel = new ReviewModel();
-            await _form.ResetAsync();
-            await reviewsForBarber.Refresh();
-            Snackbar.Add("Отзыв успешно отправлен", Severity.Success);
-
-        }
-        else
-        {
-            Snackbar.Add("Вы уже оставили отзыв об этом сотруднике", Severity.Info);
-        }
+        Snackbar.Add(msg.Item1, msg.Item2);
+        await _form.ResetAsync();
+        await reviewsForBarber.Refresh();
     }
 
     private async Task CancelReview()
     {
-        await _form?.ResetAsync(); 
+        await _form!.ResetAsync(); 
         reviewPanel?.CollapseAsync();
     }
 
@@ -454,6 +381,6 @@ else
     {
         public int Score { get; set; }
         public int OrderId { get; set; }
-        public string Text { get; set; }
+        public string Text { get; set; } = default!;
     }
 }

@@ -1,5 +1,6 @@
 using barberchainAPI.Data;
 using barberchainAPI.Functional;
+using barberchainAPI.Functional.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
@@ -58,6 +59,9 @@ namespace barberchainAPI
             builder.Services.AddScoped<LocalStorageService>();
             builder.Services.AddScoped<CartService>();
             builder.Services.AddHostedService<OrderExpirationService>();
+            builder.Services.AddScoped<IScheduleRequestService, ScheduleRequestService>();
+            builder.Services.AddScoped<ICreateScheduleService, CreateScheduleService>();
+            builder.Services.AddScoped<IProfileService, ProfileService>();
 
             var app = builder.Build();
 

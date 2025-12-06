@@ -1,5 +1,66 @@
-﻿<h3>PhoneOrderPlacement</h3>
+﻿@using System.Security.Claims
+@using barberchainAPI.Functional.Services
+@inject IDialogService DialogService
+@inject NavigationManager Navigation
+@inject IProfileService ProfileService
 
-@code {
+<MudPopoverProvider></MudPopoverProvider>
+<MudDialogProvider></MudDialogProvider>
 
+<MudContainer Class="mx-auto mt-4" Style="width:100%;">
+    <MudPaper Class="pa-4">
+        <MudSelect T="Barber">
+            @if (Barber != null)
+            {
+                foreach (var b in Barber.Bshop.Barbers)
+                {
+                    <MudSelectItem T="Barber">@b.Account.Lastname @b.Account.Restname</MudSelectItem>
+                }
+            }
+        </MudSelect>
+        <MudDatePicker @bind-Date="@_selectedDate" @bind-Date:event="onchange"></MudDatePicker>
+        <MudButton @onclick="OpenBookDialogAsync" Variant="Variant.Filled" Color="Color.Primary">
+            Забронировать
+        </MudButton>
+    </MudPaper>
+</MudContainer>
+
+@code
+{
+    /*
+    * List phone-booked orders with Decline button in case the client would like to cancel his order
+    * Time booking with all jobs of the selected barber (matter of providing correct params)
+    */
+
+    [Parameter]
+    public Barber Barber { get; set; } = default!;
+
+    [Parameter]
+    public ClaimsPrincipal? User { get; set; }
+
+    private DateTime? _selectedDate = DateTime.Today;
+
+    private async Task OpenBookDialogAsync()
+    {
+        var atuPattern = await ProfileService.GetAvailabilityForDayAsync(Barber!.Id, _selectedDate);
+        var jobSet = Barber.BarberJobs.Select(x => x.Job);
+
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.ExtraExtraLarge, FullWidth = true };
+        var params_ = new DialogParameters<BarberPageDialog> {
+            { x => x.AtuPattern, atuPattern },
+            { y => y.SelectedDate, _selectedDate},
+            { z => z.Barber, Barber },
+            { w => w.user, User },
+            { u => u.JobSet, jobSet } };
+
+        var dialog = await DialogService.ShowAsync<BarberPageDialog>("Book time", params_, options);
+        var dialogRes = await dialog.Result;
+        if (dialogRes != null && !dialogRes.Canceled)
+        {
+            var createdOrder = dialogRes.Data as Order;
+
+            Navigation.NavigateTo($"/payment/{createdOrder!.Id}");
+            Navigation.Refresh();
+        }
+    }
 }

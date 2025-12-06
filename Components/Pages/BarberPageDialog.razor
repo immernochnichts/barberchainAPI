@@ -6,7 +6,6 @@
 @inject CartService CartService
 @inject IJSRuntime JS
 @inject BarberchainDbContext Context
-@inject NavigationManager Navigation
 
 <style>
     .timeline-wrapper {
@@ -171,7 +170,7 @@
         <div class="job-cart">
             @if (cart != null && Barber != null)
             {
-                @foreach (var job in cart.JobSet.Intersect(Barber.BarberJobs.Select(x => x.Job)))
+                @foreach (var job in JobSet)
                 {
                     <div class="job-entry">
                         <div class="job-item"
@@ -195,11 +194,11 @@
     <DialogActions>
         <MudText Style="color: crimson">@errorMsg</MudText>
         <MudButton OnClick="Cancel">Отмена</MudButton>
-        @if (user != null && user.Identity.IsAuthenticated && int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value) != Barber.AccountId)
+        @if (user != null && user.Identity!.IsAuthenticated && int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value) != Barber.AccountId)
         {
             <MudButton Color="Color.Primary" OnClick="Submit">Перейти к оплате</MudButton>
         }
-        else if (user != null && !user.Identity.IsAuthenticated)
+        else if (user != null && !user.Identity!.IsAuthenticated)
         {
             <MudButton Color="Color.Primary" OnClick="Submit">Перейти к оплате</MudButton>
         }
@@ -217,7 +216,7 @@
     }
 
     [CascadingParameter]
-    private IMudDialogInstance MudDialog { get; set; }
+    private IMudDialogInstance MudDialog { get; set; } = default!;
 
     [Parameter]
     public BitArray? AtuPattern { get; set; }
@@ -230,6 +229,9 @@
 
     [Parameter]
     public ClaimsPrincipal? user { get; set; }
+
+    [Parameter]
+    public IEnumerable<Job> JobSet { get; set; } = default;
 
     public bool vacantEncountered { get; set; } = false;
 
@@ -307,8 +309,7 @@
             await CartService.RemoveItem(job.Id);
         }
 
-        Navigation.NavigateTo($"/payment/{order.Id}");
-        Navigation.Refresh();
+        MudDialog.Close(order);
     }
 
     private Cart? cart;

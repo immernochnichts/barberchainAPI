@@ -384,6 +384,6 @@
     {
         var bb = Context.Barbers.Where(b => b.AccountId == barber.Id).FirstOrDefault();
 
-        return bb.Bshop.ManagerAccountId == manager.Id;
+        return bb!.Bshop.ManagerAccountId == manager.Id;
     }
 }

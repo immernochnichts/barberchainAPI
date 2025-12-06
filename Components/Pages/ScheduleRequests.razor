@@ -3,9 +3,11 @@
 @using System.Collections
 @using System.Text
 @using barberchainAPI.Data
+@using barberchainAPI.Functional.Services
 @inject BarberchainDbContext Context
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject IScheduleRequestService ScReqService
 
 <MudPopoverProvider />
 <MudDialogProvider />
@@ -89,7 +91,7 @@
                     <MudTd>@r.RequestDate.ToString("yyyy-MM-dd")</MudTd>
                     <MudTd>@r.Message</MudTd>
                     <MudTd>
-                        @GetScheduleChanges(r.Id)
+                        @ScReqService.GetScheduleChangesAsync(r.Id)
                     </MudTd>
                     <MudTd>@r.Status</MudTd>
                     <MudTd>
@@ -106,34 +108,21 @@
 </MudContainer>
 
 @code {
-    private List<ScheduleRequest> requests;
+    private List<ScheduleRequest> requests = default!;
 
     [Parameter] public ClaimsPrincipal? User { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadRequests();
-    }
+        var managerId = int.Parse(User!.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
 
-    private async Task LoadRequests()
-    {
-        var managerId = int.Parse(User.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
-
-        requests = await Context.ScheduleRequests
-            .Include(r => r.Barber)
-                .ThenInclude(b => b.Account)
-            .Include(r => r.Barber)
-                .ThenInclude(b => b.Bshop)
-            .Where(r => r.Barber.Bshop.ManagerAccountId == managerId)
-            .OrderByDescending(r => r.RequestDate)
-            .ToListAsync();
+        requests = await ScReqService.LoadRequestsAsync(managerId);
     }
 
     private async Task ApproveRequest(int requestId)
     {
         var req = await Context.ScheduleRequests.FindAsync(requestId);
-
-        var declinedOrderCount = !string.IsNullOrEmpty(req.OrderIdsToDecline) ? req.OrderIdsToDecline?.Split(" ").Count() : 0;
+        var declinedOrderCount = !string.IsNullOrEmpty(req!.OrderIdsToDecline) ? req.OrderIdsToDecline?.Split(" ").Count() : 0;
 
         bool? confirmed = await DialogService.ShowMessageBox(
             "Подтвердите изменение расписания",
@@ -142,75 +131,7 @@
 
         if (confirmed != null && confirmed.Value)
         {
-            if (req != null)
-            {
-                var sched = await Context.BarberScheduleDays.Where(d => d.Date == req.RequestDate && d.BarberId == req.BarberId).FirstOrDefaultAsync();
-                req.Status = ScheduleRequestStatus.Approved;
-
-                if (sched == null) // barber altered schedule that's not present in DB yet. We'll create it right now then. No orders could've been placed here
-                {
-                    var newSched = new BarberScheduleDay()
-                    {
-                        AtuPattern = req.AtuPattern,
-                        BarberId = req.BarberId,
-                        Date = req.RequestDate
-                    };
-                    Context.BarberScheduleDays.Add(newSched);
-                }
-                else // barber altered schedule that's present in the DB
-                {
-                    sched.AtuPattern = req.AtuPattern;
-
-                    bool firstTime = true;
-                    Notification not = default;
-
-                    foreach (var o in req.OrderIdsToDecline?.Split(" ", StringSplitOptions.RemoveEmptyEntries))
-                    {
-                        var order = await Context.Orders.Where(ord => ord.Id == int.Parse(o)).FirstOrDefaultAsync();
-
-                        if (order.AccountId != null)
-                        {
-                            if (firstTime)
-                            {
-                                not = new Notification // send notification to users with an account
-                                {
-                                    Type = NotificationType.General,
-                                    Content = $"Просим прощение за предоставленные неудобства. Ваш заказ был отклонён. Сотрудник позвонит на номер телефона вашего профиля."
-                                };
-                                Context.Notifications.Add(not);
-                                await Context.SaveChangesAsync();
-                                firstTime = false;
-                            }
-
-                            var acc_not = new AccountNotification
-                            {
-                                AccountId = order.AccountId.Value,
-                                NotificationId = not.Id
-                            };
-
-                            var existsLocal = Context.AccountNotifications.Local
-                                .Any(an => an.AccountId == acc_not.AccountId && an.NotificationId == acc_not.NotificationId);
-
-                            if (!existsLocal)
-                            {
-                                var existsDb = await Context.AccountNotifications
-                                    .AnyAsync(an => an.AccountId == acc_not.AccountId && an.NotificationId == acc_not.NotificationId);
-
-                                if (!existsDb)
-                                    Context.AccountNotifications.Add(acc_not);
-                            }
-                        }
-
-                        order.Status = OrderStatus.Declined;
-                    }
-                }
-
-                await Context.SaveChangesAsync();
-                await NotifyBarber(req);
-                await LoadRequests();
-
-                StateHasChanged();
-            }
+            await ScReqService.ApproveRequestAsync(req);
         }
     }
 
@@ -226,117 +147,16 @@
             var dialog = await DialogService.ShowAsync<DeclineRequestDialog>("Отклонить изменение расписания", params_, options);
 
             var dialogResult = await dialog.Result;
-            var updatedReq = dialogResult.Data as ScheduleRequest;
 
-            await NotifyBarber(updatedReq);
-            await LoadRequests();
-            StateHasChanged();
-        }
-    }
-
-    private async Task NotifyBarber(ScheduleRequest req)
-    {
-        Notification not = default;
-
-        if (req.Status == ScheduleRequestStatus.Approved)
-        {
-            List<Order> orders = new();
-
-            var orderIdsToDeclineArray = req.OrderIdsToDecline?.Split(" ");
-            foreach (var o in req.OrderIdsToDecline?.Split(" ", StringSplitOptions.RemoveEmptyEntries))
+            if (dialogResult != null && !dialogResult.Canceled)
             {
-                int orderId = int.Parse(o);
-                var order = await Context.Orders
-                    .Include(o => o.Account)
-                    .Where(ord => ord.Id == orderId)
-                    .FirstOrDefaultAsync();
-                orders.Add(order);
+                var updatedReq = dialogResult.Data as ScheduleRequest;
+
+                await ScReqService.NotifyBarberAsync(updatedReq!);
+                var managerId = int.Parse(User!.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
+                requests = await ScReqService.LoadRequestsAsync(managerId);
+                StateHasChanged();
             }
-
-            not = new Notification
-            {
-                Type = NotificationType.General,
-                Content = $"Запрос на изменение расписания на {req.RequestDate} одобрен. Заказов отклонено: {req.OrderIdsToDecline.Split(" ", StringSplitOptions.RemoveEmptyEntries).Count()}. Пожалуйста, позвоните на следующие номера телефонов и предупредите об отмене заказов: {string.Join(", ", orders.Select(o => o.AccountId != null ? o.Account.Phone : o.Phone))}"
-            };
         }
-        else
-        {
-            not = new Notification
-            {
-                Type = NotificationType.General,
-                Content = $"Запрос на изменение расписания на {req.RequestDate} отклонён. Менеджер указал следующую причину: {req.ReasonRejected}" // the reason is null or empty or whatever the fuck
-            };
-        }
-
-        Context.Notifications.Add(not);
-        await Context.SaveChangesAsync();
-
-        var acc_not = new AccountNotification
-        {
-            AccountId = req.Barber.AccountId.Value,
-            NotificationId = not.Id
-        };
-
-        Context.AccountNotifications.Add(acc_not);
-        await Context.SaveChangesAsync();
-    }
-
-    private string GetScheduleChanges(int requestId)
-    {
-        var req = requests.Where(r => r.Id == requestId).FirstOrDefault();
-        var sched = Context.BarberScheduleDays.Where(d => d.Date == req.RequestDate && d.BarberId == req.BarberId).FirstOrDefault();
-
-        return GetAtuDiff(sched == null ? req.Barber.Bshop.DefaultSchedule : sched.AtuPattern, req.AtuPattern);
-    }
-
-    public static string GetAtuDiff(BitArray before, BitArray after)
-    {
-        var availableRanges = new List<string>();
-        var unavailableRanges = new List<string>();
-
-        for (int i = 0; i < 96; i++)
-        {
-            bool b = before[i];
-            bool a = after[i];
-
-            if (b == a)
-                continue;
-
-            bool available = !b && a;
-            bool unavailable = b && !a;
-
-            int start = i;
-
-            while (i + 1 < 96 && before[i + 1] != after[i + 1])
-                i++;
-
-            int end = i;
-
-            string from = AtuIndexToTime(start);
-            string to = AtuIndexToTime(end + 1);
-
-            string range = $"{from}–{to}";
-
-            if (available)
-                availableRanges.Add(range);
-            else
-                unavailableRanges.Add(range);
-        }
-
-        var sb = new StringBuilder();
-
-        if (availableRanges.Count > 0)
-            sb.AppendLine($"{string.Join(", ", availableRanges)} стало доступно");
-
-        if (unavailableRanges.Count > 0)
-            sb.AppendLine($"{string.Join(", ", unavailableRanges)} стало недоступно");
-
-        return sb.ToString().TrimEnd();
-    }
-
-    private static string AtuIndexToTime(int index)
-    {
-        int minutes = index * 15;
-        return TimeSpan.FromMinutes(minutes).ToString(@"hh\:mm");
     }
 }
