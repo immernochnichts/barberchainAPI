@@ -101,6 +101,21 @@ namespace barberchainAPI.Functional.Services
                 }
 
                 order.Status = OrderStatus.Declined;
+
+                //clear declined orders from schedule
+                int startIndex =
+                   order.AppointedTime.Hour * 4 +
+                   order.AppointedTime.Minute / 15;
+
+                int totalDuration = order.OrderJobs.Sum(j => (int)j.Job.DurationAtu);
+
+                for (int i = startIndex; i < totalDuration; i++)
+                {
+                    if (i >= 0 && i < 96)
+                    {
+                        req.AtuPattern[i] = true;
+                    }
+                }
             }
         }
 

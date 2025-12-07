@@ -1,7 +1,11 @@
 ﻿@namespace barberchainAPI.Components.Pages
 @using MudBlazor
+@using barberchainAPI.Functional.Services
 @inject NavigationManager Navigation
 @inject BarberchainDbContext Context
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject IOrderService OrderService
 
 <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6 text-center">
 
@@ -28,7 +32,7 @@
             </MudStack>
 
             <!-- Buttons -->
-            <MudStack Direction="Row" Spacing="2" Justify="Justify.Center">
+            <MudStack Row="true" Spacing="2">
                 @if (Account != null)
                 {
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GoToOrders">
@@ -38,6 +42,12 @@
                 <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="GoHome">
                     На главную
                 </MudButton>
+                @if (order != null && order.Status == OrderStatus.Waiting)
+                {
+                    <MudButton Color="Color.Error" Class="ml-auto" @onclick="CancelOrder">
+                        Отменить заказ
+                    </MudButton>
+                }
             </MudStack>
         }
 
@@ -47,7 +57,7 @@
 
 @code {
     [Parameter]
-    public Account Account { get; set; }
+    public Account Account { get; set; } = default!;
 
     [Parameter]
     public Order? order { get; set; }
@@ -62,5 +72,24 @@
     {
         Navigation.NavigateTo("/");
         Navigation.Refresh();
+    }
+
+    private async Task CancelOrder()
+    {
+        bool? confirmed = await DialogService.ShowMessageBox(
+            "Подтвердите отмену",
+            $"Отменить заказ?",
+            yesText: "Подтвердить", cancelText: "Назад");
+
+        if (confirmed == true)
+        {
+            order!.Status = OrderStatus.Declined;
+
+            var bsd = await Context.BarberScheduleDays.Where(d => d.Date == DateOnly.FromDateTime(order.AppointedTime) && d.BarberId == order.BarberId).FirstAsync();
+
+            await OrderService.EraseOrderFromScheduleAsync(bsd, order);
+
+            Snackbar.Add("Заказ успешно отменён", Severity.Success);
+        }
     }
 }

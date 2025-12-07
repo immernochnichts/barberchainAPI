@@ -3,7 +3,7 @@
 @inject BarberchainDbContext Context
 @inject CartService CartService
 
-<MudPaper Elevation="3" Class="p-4 rounded-lg">
+<MudPaper Elevation="1" Class="p-4 rounded-lg">
     @if (cart != null && cart.JobSet.Count > 0)
     {
     <MudContainer Style="padding-top:1rem;">
@@ -21,7 +21,10 @@
     }
     else
     {
-        <MudText>Корзина пуста</MudText>
+        <MudPaper Elevation="3" Class="p-4 rounded-lg" style="text-align:center;">
+            <MudIcon Class="mt-4" Icon="@Icons.Material.Filled.ShoppingCart" Color="Color.Secondary" Size="Size.Large" />
+            <MudText Typo="Typo.h6" Class="mb-4 mt-2">Корзина пуста</MudText>
+        </MudPaper>
     }
 </MudPaper>
 

@@ -17,9 +17,14 @@
 {
     <MudContainer Style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top:4rem;">
         <h1>Просматриваемый заказ отклонён</h1>
-        <MudButton Color="Color.Primary" OnClick="GoHome">
-            На главную
-        </MudButton>
+        <MudStack Row="true">
+            <MudButton Color="Color.Primary" OnClick="GoHome">
+                На главную
+            </MudButton>
+            <MudButton Color="Color.Secondary" OnClick="OpenOrderHistory">
+                История заказов
+            </MudButton>
+        </MudStack>
     </MudContainer>
 }
 else
@@ -46,11 +51,11 @@ else
                         </MudText>
                         <MudText>
                             Стоимость: @(
-                     order.Barber.BarberJobs
+                     order!.Barber.BarberJobs
                      .Where(bj => order.OrderJobs.Select(oj => oj.JobId).Contains(bj.JobId)) // only jobs in this order
                      .Sum(bj => bj.Price ?? bj.Job.DefaultPrice))
                         </MudText>
-                        <MudText>Назначенное время: @order.AppointedTime</MudText>
+                        <MudText>Назначенное время: @order!.AppointedTime</MudText>
                     }
                     else
                     {
@@ -131,6 +136,12 @@ else
         Navigation.Refresh();
     }
 
+    private void OpenOrderHistory()
+    {
+        Navigation.NavigateTo($"/account/{int.Parse(user!.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value)}?component=OrderHistory");
+        Navigation.Refresh();
+    }
+
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
@@ -161,7 +172,7 @@ else
 
             acc = order?.Account;
 
-            if (order.Status == OrderStatus.Waiting)
+            if (order!.Status == OrderStatus.Waiting)
             {
                 success = true;
                 StateHasChanged();
@@ -177,20 +188,20 @@ else
             success = order.IsPaid;
             service = order.OrderJobs.Select(oj => oj.Job);
 
-            order.PendingUntil = order.PendingUntil;
+            //order.PendingUntil = order.PendingUntil;
             order.Status = OrderStatus.Pending;
 
             countdownTimer = new System.Timers.Timer(1000);
             countdownTimer.Elapsed += (s, e) =>
             {
-                TimeRemaining = order.PendingUntil.Value - DateTime.Now;
+                TimeRemaining = order.PendingUntil!.Value - DateTime.Now;
                 if (TimeRemaining <= TimeSpan.Zero)
                 {
                     countdownTimer.Stop();
                     InvokeAsync(() =>
                     {
+                        order.Status = OrderStatus.Declined;
                         Navigation.NavigateTo($"/");
-                        //order.Status = OrderStatus.Declined;
                     });
                 }
                 InvokeAsync(StateHasChanged);
@@ -211,7 +222,7 @@ else
         if (isFormValid)
         {
             await SummonPhoneDialog();
-            order.IsPaid = true;
+            order!.IsPaid = true;
             order.Status = OrderStatus.Waiting;
             await Context.SaveChangesAsync();
             success = true;
@@ -227,7 +238,7 @@ else
     private async Task HandlePayOfflineClick()
     {
         await SummonPhoneDialog();
-        order.Status = OrderStatus.Waiting;
+        order!.Status = OrderStatus.Waiting;
         await Context.SaveChangesAsync();
         success = true;
         await NotifyBarber();
@@ -258,7 +269,7 @@ else
 
         var acc_not = new AccountNotification
             {
-                AccountId = order.Barber.AccountId.Value,
+                AccountId = order!.Barber.AccountId!.Value,
                 NotificationId = not.Id
             };
 
@@ -268,9 +279,9 @@ else
 
     public class PaymentModel
     {
-        public string CardholderName { get; set; }
-        public string CardNumber { get; set; }
-        public string Expiry { get; set; }
-        public string CVC { get; set; }
+        public string CardholderName { get; set; } = default!;
+        public string CardNumber { get; set; } = default!;
+        public string Expiry { get; set; } = default!;
+        public string CVC { get; set; } = default!;
     }
 }

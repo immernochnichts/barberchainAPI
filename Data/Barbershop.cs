@@ -32,7 +32,6 @@ namespace barberchainAPI.Data
         [Column("default_schedule")]
         public BitArray DefaultSchedule { get; set; }
 
-        [Required]
         [Column("fk_manager_account")]
         public int? ManagerAccountId { get; set; }
         [ForeignKey(nameof(ManagerAccountId))]

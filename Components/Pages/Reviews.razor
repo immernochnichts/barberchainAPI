@@ -4,6 +4,7 @@
 @using barberchainAPI.Components.Pages;
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
+
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -54,9 +55,9 @@
 else
 {
     <MudPaper Elevation="3" Class="p-4 rounded-lg" Style="text-align:center;">
-        <MudIcon Icon="@Icons.Material.Filled.Reviews" Color="Color.Secondary" Size="Size.Large" />
+        <MudIcon Class="mt-4" Icon="@Icons.Material.Filled.Reviews" Color="Color.Secondary" Size="Size.Large" />
         <MudText Typo="Typo.h6" Class="mt-2">Нет отзывов</MudText>
-        <MudText Typo="Typo.body2">Вы ещё не оставили отзывов о сотрудниках</MudText>
+        <MudText Class="mb-4" Typo="Typo.body2">Вы ещё не оставили отзывов о сотрудниках</MudText>
     </MudPaper>
 }
 

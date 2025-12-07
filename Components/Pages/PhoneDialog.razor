@@ -8,7 +8,7 @@
 @inject IJSRuntime JS
 
 <MudDialog MaxWidth="MaxWidth.Small" FullWidth="true">
-    <TitleContent>Отказать в изменении расписания</TitleContent>
+    <TitleContent>Введите номер телефона</TitleContent>
 
     <DialogContent>
         <MudTextField Label="Укажите номер телефона, чтобы с вами можно было связаться"
@@ -17,7 +17,7 @@
                       FullWidth="true"
                       Required="true"
                       Immediate="true"
-                      MaxLength="255"
+                      MaxLength="15"
                       InputType="InputType.Telephone"
                       Margin="Margin.Dense" />
         @if (account != null)
@@ -43,26 +43,26 @@
     [CascadingParameter]
     IMudDialogInstance MudDialog { get; set; } = default!;
 
-    private string _phone;
+    private string _phone = default!;
 
     private bool savePhone = false;
 
     [Parameter]
-    public Order order { get; set; }
+    public Order order { get; set; } = default!;
 
     [Parameter]
     public ClaimsPrincipal? user { get; set; }
 
-    private string error;
+    private string error = default!;
 
-    private Account account;
+    private Account account = default!;
 
     protected override async Task OnParametersSetAsync()
     {
-        if (user.Identity.IsAuthenticated)
+        if (user!.Identity!.IsAuthenticated)
         {
             int userId = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
-            account = await Context.Accounts.Where(a => a.Id == userId).FirstOrDefaultAsync();
+            account = (await Context.Accounts.Where(a => a.Id == userId).FirstOrDefaultAsync())!;
 
             if (!string.IsNullOrEmpty(account.Phone))
             {
@@ -76,7 +76,7 @@
 
             if (!string.IsNullOrEmpty(guestPhone))
             {
-                _phone = guestPhone;    // if guest that with phone number saved in browser cache
+                _phone = guestPhone;    // if guest has phone number saved in browser cache
             }
         }
 
@@ -91,7 +91,7 @@
             return;
         }
 
-        if (user != null && user.Identity.IsAuthenticated)
+        if (user != null && user.Identity!.IsAuthenticated)
         {
             if (savePhone)
             {

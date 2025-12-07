@@ -6,18 +6,18 @@
 {
     <MudPaper Elevation="3" Class="p-6 rounded-lg">
         <MudStack Spacing="3">
-            <MudText Typo="Typo.h4">История заказов</MudText>
+            <MudText Class="mt-4 ml-4" Typo="Typo.h4">История заказов</MudText>
             <MudDivider Class="mb-2" />
 
             @foreach (var o in OrderList)
             {
                 <a href=@($"/payment/{o.Id}")>
-                    <MudCard Elevation="2" Class="mb-4">
+                    <MudCard style="border: 1px solid black;" Elevation="2" Class="mx-4 mb-4">
                         <MudCardContent>
                             <MudStack Spacing="2">
 
                                 <!-- Header -->
-                                <MudStack Direction="Row" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
                                     <MudText Typo="Typo.h6">Заказ №@o.Id</MudText>
                                     <MudChip T="bool" Color="@GetStatusColor(o.Status)"
                                              Label="true"
@@ -29,7 +29,7 @@
                                 <MudDivider />
 
                                 <!-- Appointed time -->
-                                <MudStack Direction="Row" Spacing="1">
+                                <MudStack Row="true" Spacing="1">
                                     <MudIcon Icon="@Icons.Material.Filled.EventAvailable" Color="Color.Primary" />
                                     <MudText>
                                         Назначенное время: @o.AppointedTime.ToString("dd MMMM yyyy, HH:mm")
@@ -37,7 +37,7 @@
                                 </MudStack>
 
                                 <!-- Order time -->
-                                <MudStack Direction="Row" Spacing="1">
+                                <MudStack Row="true" Spacing="1">
                                     <MudIcon Icon="@Icons.Material.Filled.Schedule" Color="Color.Secondary" />
                                     <MudText>
                                         Создан: @o.OrderTime.ToString("dd MMMM yyyy, HH:mm")
@@ -45,7 +45,7 @@
                                 </MudStack>
 
                                 <!-- Method -->
-                                <MudStack Direction="Row" Spacing="1">
+                                <MudStack Row="true" Spacing="1">
                                     <MudIcon Icon="@(o.Method == OrderMethod.Online
                                     ? Icons.Material.Filled.Computer
                                     : Icons.Material.Filled.Phone )"
@@ -59,7 +59,7 @@
 
                                 <!-- Jobs -->
                                 <MudText Typo="Typo.subtitle2" Class="mt-1">Услуги:</MudText>
-                                <MudStack Direction="Row" Spacing="1" Wrap="Wrap.Wrap">
+                                <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap">
                                     @foreach (var job in o.OrderJobs.Select(j => j.Job).Where(j => j != null))
                                     {
                                         <MudChip T="bool" Label="true" Color="Color.Default" Variant="Variant.Outlined" Class="mb-1">

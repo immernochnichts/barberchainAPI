@@ -1,15 +1,19 @@
-﻿@inject BarberchainDbContext Context
-@using System.Security.Claims
+﻿@using System.Security.Claims
+@using barberchainAPI.Functional.Services
+@inject BarberchainDbContext Context
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject IOrderService OrderService
 
 <MudPopoverProvider></MudPopoverProvider>
 
 <MudContainer Class="mx-auto mt-4" Style="width:100%;">
     <MudPaper Class="pa-4">
 
-        <MudText Typo="Typo.h5" Class="mb-4">Список заказов мне</MudText>
+        <MudText Typo="Typo.h5" Class="mb-4">@(OnlyPhoneBooked ? "Заказы по телефону" : "Список заказов мне")</MudText>
 
         <MudTextField @bind-Value="_search"
-                      Placeholder="Введите фамилию (username) или номер телефона..."
+                      Placeholder="Email или номер телефона..."
                       Adornment="Adornment.Start"
                       AdornmentIcon="@Icons.Material.Filled.Search"
                       Immediate="true"
@@ -28,14 +32,16 @@
             </MudSelect>
 
             <!-- Method -->
-            <MudSelect T="OrderMethod?" @bind-Value="_method" @bind-Value:event="onchange" Label="Метод" Clearable="true" Dense="true" Style="width:160px;" ValueChanged="OnMethodChanged">
-                <MudSelectItem T="OrderMethod?" Value="null">All</MudSelectItem>
-                @foreach (var m in Enum.GetValues<OrderMethod>())
-                {
-                    <MudSelectItem T="OrderMethod?" Value="m">@m</MudSelectItem>
-                }
-            </MudSelect>
-
+            @if (!OnlyPhoneBooked)
+            {
+                <MudSelect T="OrderMethod?" @bind-Value="Method" @bind-Value:event="onchange" Label="Метод" Clearable="true" Dense="true" Style="width:160px;" ValueChanged="OnMethodChanged">
+                    <MudSelectItem T="OrderMethod?" Value="null">All</MudSelectItem>
+                    @foreach (var m in Enum.GetValues<OrderMethod>())
+                    {
+                        <MudSelectItem T="OrderMethod?" Value="m">@m</MudSelectItem>
+                    }
+                </MudSelect>
+            }
             <!-- Date range -->
             <MudDateRangePicker Label="Диапазон дат"
                                 @bind-DateRange="_dateRange"
@@ -67,7 +73,10 @@
                 <MudTh>Метод</MudTh>
                 <MudTh>Оплачен</MudTh>
                 <MudTh>Телефон</MudTh>
-                <MudTh></MudTh>
+                @if (OnlyPhoneBooked)
+                {
+                    <MudTh></MudTh>
+                }
             </HeaderContent>
 
             <RowTemplate Context="o">
@@ -77,7 +86,11 @@
                 <MudTd>@o.Status</MudTd>
                 <MudTd>@o.Method</MudTd>
                 <MudTd>@(o.IsPaid ? "да" : "нет")</MudTd>
-                <MudTd>@(string.IsNullOrEmpty(o.Phone) ? o.Account.Phone : o.Phone)</MudTd>
+                <MudTd>@(string.IsNullOrEmpty(o.Phone) && o.Account != null ? o.Account.Phone : o.Phone)</MudTd>
+                @if (OnlyPhoneBooked && o.Status != OrderStatus.Declined)
+                {
+                    <MudTh><MudButton Color="Color.Error" @onclick="async () => await CancelOrder(o)">Отменить</MudButton></MudTh>
+                }
             </RowTemplate>
 
         </MudTable>
@@ -91,9 +104,14 @@
     [Parameter]
     public ClaimsPrincipal? User { get; set; }
 
+    [Parameter]
+    public OrderMethod? Method { get; set; } = null!;
+
+    [Parameter]
+    public bool OnlyPhoneBooked { get; set; } = false;
+
     private string _search = "";
     private OrderStatus? _status;
-    private OrderMethod? _method;
     private DateRange _dateRange = new DateRange(null, null);
 
     //===== Reload triggers =====
@@ -111,7 +129,7 @@
 
     private async Task OnMethodChanged(OrderMethod? m)
     {
-        _method = m;
+        Method = m;
         await _table!.ReloadServerData();
     }
 
@@ -124,11 +142,31 @@
 
     private async Task<TableData<Order>> LoadOrders(TableState state, CancellationToken token)
     {
-        var query = Context.Orders
-            .Include(o => o.Account)
-            .Include(o => o.Barber)
-            .Include(o => o.OrderJobs)
-            .AsQueryable();
+        int userid = int.Parse(User!.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
+
+        IQueryable<Order> query = default!; 
+        if (OnlyPhoneBooked)
+        {
+            var barber = await Context.Barbers.Where(b => b.AccountId == userid).FirstAsync();
+            int bshopid = await Context.Barbershops.Where(bs => bs.Barbers.Contains(barber)).Select(bs => bs.Id).FirstAsync();
+
+            query = Context.Orders
+                .Include(o => o.Account)
+                .Include(o => o.Barber)
+                    .ThenInclude(b => b.Bshop)
+                .Include(o => o.OrderJobs)
+                .Where(o => o.Barber.Bshop.Id == bshopid)
+                .AsQueryable();
+        }
+        else
+        {
+            query = Context.Orders
+                .Include(o => o.Account)
+                .Include(o => o.Barber)
+                .Include(o => o.OrderJobs)
+                .Where(o => o.Barber.AccountId == userid)
+                .AsQueryable();
+        }
 
         // ------ filtering ------
         if (!string.IsNullOrWhiteSpace(_search))
@@ -141,8 +179,8 @@
         if (_status.HasValue)
             query = query.Where(o => o.Status == _status.Value);
 
-        if (_method.HasValue)
-            query = query.Where(o => o.Method == _method.Value);
+        if (Method.HasValue)
+            query = query.Where(o => o.Method == Method.Value);
 
         if (_dateRange.Start != null)
             query = query.Where(o => o.AppointedTime >= _dateRange.Start.Value);
@@ -176,4 +214,22 @@
             };
     }
 
+    private async Task CancelOrder(Order order)
+    {
+        bool? confirmed = await DialogService.ShowMessageBox(
+            "Подтвердите отмену",
+            $"Отменить заказ?",
+            yesText: "Подтвердить", cancelText: "Назад");
+
+        if (confirmed == true)
+        {
+            var bsd = await Context.BarberScheduleDays.Where(d => d.BarberId == order.BarberId && d.Date == DateOnly.FromDateTime(order.AppointedTime)).FirstAsync();
+            
+            order!.Status = OrderStatus.Declined;
+            await OrderService.EraseOrderFromScheduleAsync(bsd, order);
+
+            Snackbar.Add("Заказ успешно отменён", Severity.Success);
+            StateHasChanged();
+        }
+    }
 }

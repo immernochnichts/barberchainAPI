@@ -3,9 +3,11 @@
 @using System.Collections;
 @using barberchainAPI.Functional
 @using System.Security.Claims
+@using barberchainAPI.Functional.Services
 @inject CartService CartService
 @inject IJSRuntime JS
 @inject BarberchainDbContext Context
+@inject IOrderService OrderService
 
 <style>
     .timeline-wrapper {
@@ -194,13 +196,20 @@
     <DialogActions>
         <MudText Style="color: crimson">@errorMsg</MudText>
         <MudButton OnClick="Cancel">Отмена</MudButton>
-        @if (user != null && user.Identity!.IsAuthenticated && int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value) != Barber.AccountId)
+        @if (PhoneBooking) // only barber can access
         {
-            <MudButton Color="Color.Primary" OnClick="Submit">Перейти к оплате</MudButton>
+            <MudButton Color="Color.Primary" OnClick="Submit">Подтвердить</MudButton>
         }
-        else if (user != null && !user.Identity!.IsAuthenticated)
+        else
         {
-            <MudButton Color="Color.Primary" OnClick="Submit">Перейти к оплате</MudButton>
+            @if (user != null && user.Identity!.IsAuthenticated && int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value) != Barber!.AccountId)
+            {
+                <MudButton Color="Color.Primary" OnClick="Submit">Перейти к оплате</MudButton>
+            }
+            else if (user != null && !user.Identity!.IsAuthenticated)
+            {
+                <MudButton Color="Color.Primary" OnClick="Submit">Перейти к оплате</MudButton>
+            }
         }
     </DialogActions>
 </MudDialog>
@@ -231,7 +240,13 @@
     public ClaimsPrincipal? user { get; set; }
 
     [Parameter]
-    public IEnumerable<Job> JobSet { get; set; } = default;
+    public IEnumerable<Job> JobSet { get; set; } = default!;
+
+    [Parameter]
+    public bool PhoneBooking { get; set; } = false;
+
+    [Parameter]
+    public string Phone { get; set; } = "";
 
     public bool vacantEncountered { get; set; } = false;
 
@@ -247,11 +262,11 @@
             return;
         }
 
-        int startIdx = PlacedJobs.MinBy(pj => pj.StartIndex).StartIndex;
+        int startIdx = PlacedJobs.MinBy(pj => pj.StartIndex)!.StartIndex;
 
         var firstpj = PlacedJobs.OrderBy(pj => pj.StartIndex).FirstOrDefault();
         var lastpj = PlacedJobs.OrderBy(pj => pj.StartIndex).LastOrDefault();
-        if (lastpj.StartIndex + lastpj.Duration - firstpj.StartIndex > PlacedJobs.Select(pj => pj.Duration).Sum())
+        if (lastpj!.StartIndex + lastpj.Duration - firstpj!.StartIndex > PlacedJobs.Select(pj => pj.Duration).Sum())
         {
             errorMsg = "Между услугами не должно быть пробелов";
             return;
@@ -259,17 +274,16 @@
 
         var order = new Order
             {
-                BarberId = Barber.Id,
-                AccountId = user.Identity.IsAuthenticated
-                    ? int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value)
-                    : null,
-                Method = OrderMethod.Online,
+                BarberId = Barber!.Id,
+                AccountId = user != null && user.Identity!.IsAuthenticated ? int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value) : null,
+                Method = PhoneBooking ? OrderMethod.Phone : OrderMethod.Online,
                 Status = OrderStatus.Pending,
-                OrderTime = DateTime.Now
+                OrderTime = DateTime.Now,
+                Phone = Phone
             };
 
         order.AppointedTime = new DateTime(
-            SelectedDate.Value.Year,
+            SelectedDate!.Value.Year,
             SelectedDate.Value.Month,
             SelectedDate.Value.Day,
             startIdx / 4,
@@ -289,20 +303,12 @@
         await Context.SaveChangesAsync(); // adding order to db
 
         var bscd = await Context.BarberScheduleDays
-            .Where(d => d.Date == DateOnly.FromDateTime(SelectedDate.Value))
+            .Where(d => d.BarberId == Barber.Id && d.Date == DateOnly.FromDateTime(SelectedDate.Value))
             .FirstOrDefaultAsync();
 
-        var newBits = new BitArray(bscd.AtuPattern);  // clone
+        order.Status = OrderStatus.Pending;
+        await OrderService.AddOrderToScheduleAsync(bscd!, order);
 
-        int i = firstpj.StartIndex;
-        while (i < lastpj.StartIndex + lastpj.Duration)
-        {
-            newBits[i] = false;
-            i++;
-        }
-
-        bscd.AtuPattern = newBits; // updating barber_schedule_day in the DB
-        await Context.SaveChangesAsync();
 
         foreach (var job in PlacedJobs.Select(pj => pj.Job))
         {

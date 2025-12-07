@@ -4,36 +4,54 @@
 @inject NavigationManager Navigation
 @inject IProfileService ProfileService
 
-<MudPopoverProvider></MudPopoverProvider>
+@*<MudPopoverProvider></MudPopoverProvider>*@
 <MudDialogProvider></MudDialogProvider>
 
-<MudContainer Class="mx-auto mt-4" Style="width:100%;">
+<MudContainer Class="mt-4" Style="width:100%;">
     <MudPaper Class="pa-4">
-        <MudSelect T="Barber">
-            @if (Barber != null)
-            {
-                foreach (var b in Barber.Bshop.Barbers)
-                {
-                    <MudSelectItem T="Barber">@b.Account.Lastname @b.Account.Restname</MudSelectItem>
-                }
-            }
-        </MudSelect>
-        <MudDatePicker @bind-Date="@_selectedDate" @bind-Date:event="onchange"></MudDatePicker>
-        <MudButton @onclick="OpenBookDialogAsync" Variant="Variant.Filled" Color="Color.Primary">
-            Забронировать
-        </MudButton>
+        <MudContainer Style="margin-bottom: 12px; border-radius: 0.5rem; border: 1px solid black; width: 80%;">
+            <MudStack Class="mb-4 mt-4" Row="true" AlignItems="AlignItems.Center">
+                <MudText>Сотрудник: </MudText>
+                <MudSelect Style="max-width: fit-content;" T="Barber" @bind-Value="@_selectedBarber" Text="@(_selectedBarber?.Account.Lastname + " " + _selectedBarber?.Account.Restname)">
+                    @if (Barber != null)
+                    {
+                        foreach (var b in Barber.Bshop.Barbers)
+                        {
+                            <MudSelectItem T="Barber" Value="@b">@b.Account.Lastname @b.Account.Restname</MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            </MudStack>
+            <MudStack Class="mb-4" Row="true" AlignItems="AlignItems.Center">
+                <MudText>Дата: </MudText>
+                <MudDatePicker style="width: fit-content;" @bind-Date="@_selectedDate"></MudDatePicker>
+            </MudStack>
+            <MudStack Class="mb-4" Row="true" AlignItems="AlignItems.Center">
+                <MudText>Номер телефона: </MudText>
+                <MudTextField Style="width: fit-content;" T="string" @bind-Value="@orderBeingCreated.Phone"></MudTextField>
+            </MudStack>
+            <MudButton Disabled="@(_selectedBarber == null)" Class="mb-4 ml-auto" @onclick="OpenBookDialogAsync" Variant="Variant.Filled" Color="Color.Primary">
+                Забронировать
+            </MudButton>
+        </MudContainer>
+
+        <OrdersToDeliver Method="OrderMethod.Phone" User="@User" OnlyPhoneBooked="true"></OrdersToDeliver>
     </MudPaper>
 </MudContainer>
 
 @code
 {
-    /*
-    * List phone-booked orders with Decline button in case the client would like to cancel his order
-    * Time booking with all jobs of the selected barber (matter of providing correct params)
-    */
+        /*
+        * List phone-booked orders with Decline button in case the client would like to cancel his order
+        * Time booking with all jobs of the selected barber (matter of providing correct params)
+        */
+
+    private Order orderBeingCreated = new Order();
 
     [Parameter]
     public Barber Barber { get; set; } = default!;
+
+    private Barber _selectedBarber = default!;
 
     [Parameter]
     public ClaimsPrincipal? User { get; set; }
@@ -49,18 +67,17 @@
         var params_ = new DialogParameters<BarberPageDialog> {
             { x => x.AtuPattern, atuPattern },
             { y => y.SelectedDate, _selectedDate},
-            { z => z.Barber, Barber },
-            { w => w.user, User },
-            { u => u.JobSet, jobSet } };
+            { z => z.Barber, _selectedBarber },
+            { w => w.user, null },
+            { u => u.JobSet, jobSet },
+            { v => v.PhoneBooking, true },
+            { p => p.Phone, orderBeingCreated.Phone } };
 
         var dialog = await DialogService.ShowAsync<BarberPageDialog>("Book time", params_, options);
         var dialogRes = await dialog.Result;
         if (dialogRes != null && !dialogRes.Canceled)
         {
-            var createdOrder = dialogRes.Data as Order;
-
-            Navigation.NavigateTo($"/payment/{createdOrder!.Id}");
-            Navigation.Refresh();
+            orderBeingCreated = (dialogRes.Data as Order)!;
         }
     }
 }

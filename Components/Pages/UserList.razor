@@ -117,11 +117,11 @@
     [Parameter]
     public int UserId { get; set; }
 
-    private Account Account;
+    private Account Account = default!;
 
     protected override async Task OnParametersSetAsync()
     {
-        Account = await Context.Accounts.Where(a => a.Id == UserId).FirstOrDefaultAsync();
+        Account = (await Context.Accounts.Where(a => a.Id == UserId).FirstOrDefaultAsync())!;
     }
 
     private async Task<TableData<Account>> LoadUsers(TableState state, CancellationToken cancellationToken)
@@ -265,12 +265,12 @@
 
         var dialogResult = await dialog.Result;
 
-        if (dialogResult.Canceled)
+        if (dialogResult != null && dialogResult.Canceled)
         {
             return;
         }
 
-        var reason = dialogResult.Data as string;
+        var reason = dialogResult!.Data as string;
 
         Notification not = new Notification()
         {

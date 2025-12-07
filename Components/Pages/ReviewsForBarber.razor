@@ -48,7 +48,7 @@
                                            OnClick="@(() => DeleteReview(r))" />
                         </MudStack>
                     }
-                    else if (user != null && userId == r.Barber.Bshop.ManagerAccountId || account.Role == AccountRole.Admin)
+                    else if (user != null && userId == r.Barber.Bshop.ManagerAccountId || account?.Role == AccountRole.Admin)
                     {
                         <MudIconButton Class="ml-auto" Icon="@Icons.Material.Filled.Delete"
                                            Color="Color.Error"  

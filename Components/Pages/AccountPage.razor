@@ -117,7 +117,7 @@ else
             }
             case AccountComponent.PhoneOrderPlacement:
             {
-                <PhoneOrderPlacement Barber="@barber"></PhoneOrderPlacement>
+                <PhoneOrderPlacement Barber="@barber" User="@user"></PhoneOrderPlacement>
                 break;
             }
         }
@@ -194,8 +194,9 @@ else
                 .Include(b => b.Images)
                 .Include(b => b.Bshop)
                     .ThenInclude(b => b.Manager)
-                // .Include(b => b.Bshop)
-                //     .ThenInclude(bs => bs.Barbers)
+                .Include(b => b.Bshop)
+                    .ThenInclude(bs => bs.Barbers)
+                        .ThenInclude(b => b.Account)
                 .FirstOrDefaultAsync(b => b.AccountId == id);
 
             jobs = await Context.BarberJobs
@@ -268,8 +269,7 @@ else
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.ExtraLarge, FullWidth = true };
         var parameters = new DialogParameters<CreateScheduleDialog>
         {
-            { x => x.Barber, barber },
-            { x => x.User, user }
+            { x => x.Barber, barber }
         };
 
         await DialogService.ShowAsync<CreateScheduleDialog>("Request Schedule Adjustment", parameters, options);

@@ -120,8 +120,7 @@
 
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
 
-    [Parameter] public Barber Barber { get; set; } = default!;
-    [Parameter] public ClaimsPrincipal User { get; set; } = default!;
+    [Parameter] public Barber Barber { get; set; } = default!; // we don't need barber param as we're only able to access this page if we're the barber owning the profile
 
     private string Message { get; set; } = "";
 
@@ -192,8 +191,7 @@
             Barber = Barber,
             Message = Message,
             OrdersToDecline = ordersToDecline,
-            SelectedDate = DateOnly.FromDateTime(_selectedDate.Value),
-            UserId = int.Parse(User.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value)
+            SelectedDate = DateOnly.FromDateTime(_selectedDate.Value)
         };
 
         var createOrReplaceResult = await CreateScService.CreateOrReplaceScheduleRequest(createOrReplaceReq);

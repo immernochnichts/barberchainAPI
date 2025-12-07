@@ -11,11 +11,7 @@ namespace barberchainAPI
     {
         /*
         TODO:
-        1. Add cart page to profile DONE
-        2. Add interactive services on barber and barbershop's pages that can be added to the cart DONE
-        3. Make the services draggable so they can be filled into barber's schedule
-        4. Add fake payment page
-        5. Finish order history page
+        1. fix schedule update on order placement and cancellation
         */
 
         public static void Main(string[] args)
@@ -62,6 +58,7 @@ namespace barberchainAPI
             builder.Services.AddScoped<IScheduleRequestService, ScheduleRequestService>();
             builder.Services.AddScoped<ICreateScheduleService, CreateScheduleService>();
             builder.Services.AddScoped<IProfileService, ProfileService>();
+            builder.Services.AddScoped<IOrderService, OrderService>();
 
             var app = builder.Build();
 

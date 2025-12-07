@@ -15,7 +15,6 @@ namespace barberchainAPI.Functional.Services
 
     public class CreateReplaceSchedDto
     {
-        public int UserId { get; set; }
         public Barber Barber { get; set; } = default!;
         public DateOnly SelectedDate { get; set; }
         public BitArray AtuPattern { get; set; } = default!;
@@ -145,10 +144,10 @@ namespace barberchainAPI.Functional.Services
                 };
             }
 
-            var barberId = await _context.Barbers.Where(b => b.AccountId == dto.UserId).Select(b => b.Id).FirstOrDefaultAsync();
+            //var barberId = await _context.Barbers.Where(b => b.AccountId == dto.UserId).Select(b => b.Id).FirstOrDefaultAsync(); // not sure if userId is needed here
             var requestDate = dto.SelectedDate;
 
-            var alreadyExistingRequest = await _context.ScheduleRequests.Where(sr => sr.RequestDate == requestDate && sr.BarberId == barberId).FirstOrDefaultAsync();
+            var alreadyExistingRequest = await _context.ScheduleRequests.Where(sr => sr.RequestDate == requestDate && sr.BarberId == dto.Barber.Id).FirstOrDefaultAsync();
 
             if (alreadyExistingRequest != null)
             {
@@ -165,7 +164,7 @@ namespace barberchainAPI.Functional.Services
                 {
                     Request = new ScheduleRequest
                     {
-                        BarberId = barberId,
+                        BarberId = dto.Barber.Id,
                         RequestDate = requestDate,
                         AtuPattern = dto.AtuPattern,
                         Message = dto.Message,
