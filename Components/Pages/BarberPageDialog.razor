@@ -31,12 +31,11 @@
         flex: 0 0 auto; /* prevent shrinking */
         width: 25px;
         height: 25px;
-        border-radius: 5px;
-        border: 1px solid darkgrey;
+        border: 1px solid white;
     }
 
         .time-block.available {
-            background-color: white;
+            background-color: #93B7DF;
         }
 
         .time-block.unavailable {
@@ -306,13 +305,16 @@
             .Where(d => d.BarberId == Barber.Id && d.Date == DateOnly.FromDateTime(SelectedDate.Value))
             .FirstOrDefaultAsync();
 
-        order.Status = OrderStatus.Pending;
+        order.Status = PhoneBooking ? OrderStatus.Waiting : OrderStatus.Pending;
         await OrderService.AddOrderToScheduleAsync(bscd!, order);
 
 
-        foreach (var job in PlacedJobs.Select(pj => pj.Job))
+        if (!PhoneBooking)
         {
-            await CartService.RemoveItem(job.Id);
+            foreach (var job in PlacedJobs.Select(pj => pj.Job))
+            {
+                await CartService.RemoveItem(job.Id);
+            }
         }
 
         MudDialog.Close(order);

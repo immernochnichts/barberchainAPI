@@ -4,99 +4,99 @@
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 @inject IOrderService OrderService
+@inject INotificationService NotificationService
 
 <MudPopoverProvider></MudPopoverProvider>
 
-<MudContainer Class="mx-auto mt-4" Style="width:100%;">
-    <MudPaper Class="pa-4">
+<MudPaper Class="pa-4">
 
-        <MudText Typo="Typo.h5" Class="mb-4">@(OnlyPhoneBooked ? "Заказы по телефону" : "Список заказов мне")</MudText>
+    <MudText Typo="Typo.h5" Class="mb-4">@(OnlyPhoneBooked ? "Заказы по телефону" : "Список заказов мне")</MudText>
 
-        <MudTextField @bind-Value="_search"
-                      Placeholder="Email или номер телефона..."
-                      Adornment="Adornment.Start"
-                      AdornmentIcon="@Icons.Material.Filled.Search"
-                      Immediate="true"
-                      Class="flex-grow-1"
-                      OnKeyDown="OnSearchKeyDown" />
-        <!-- Filters -->
-        <MudStack Row="true" Spacing="2" Class="mb-4">
+    <MudTextField @bind-Value="_search"
+                  Placeholder="Email или номер телефона..."
+                  Adornment="Adornment.Start"
+                  AdornmentIcon="@Icons.Material.Filled.Search"
+                  Immediate="true"
+                  Class="flex-grow-1"
+                  OnKeyDown="OnSearchKeyDown" />
+    <!-- Filters -->
+    <MudStack Row="true" Spacing="2" Class="mb-4">
 
-            <!-- Status -->
-            <MudSelect T="OrderStatus?" @bind-Value="_status" @bind-Value:event="onchange" Label="Статус" Clearable="true" Dense="true" Style="width:180px;" ValueChanged="OnStatusChanged">
-                <MudSelectItem T="OrderStatus?" Value="null">All</MudSelectItem>
-                @foreach (var st in Enum.GetValues<OrderStatus>())
+        <!-- Status -->
+        <MudSelect T="OrderStatus?" @bind-Value="_status" @bind-Value:event="onchange" Label="Статус" Clearable="true" Dense="true" Style="width:180px;" ValueChanged="OnStatusChanged">
+            <MudSelectItem T="OrderStatus?" Value="null">All</MudSelectItem>
+            @foreach (var st in Enum.GetValues<OrderStatus>())
+            {
+                <MudSelectItem T="OrderStatus?" Value="st">@st</MudSelectItem>
+            }
+        </MudSelect>
+
+        <!-- Method -->
+        @if (!OnlyPhoneBooked)
+        {
+            <MudSelect T="OrderMethod?" @bind-Value="Method" @bind-Value:event="onchange" Label="Метод" Clearable="true" Dense="true" Style="width:160px;" ValueChanged="OnMethodChanged">
+                <MudSelectItem T="OrderMethod?" Value="null">All</MudSelectItem>
+                @foreach (var m in Enum.GetValues<OrderMethod>())
                 {
-                    <MudSelectItem T="OrderStatus?" Value="st">@st</MudSelectItem>
+                    <MudSelectItem T="OrderMethod?" Value="m">@m</MudSelectItem>
                 }
             </MudSelect>
+        }
+        <!-- Date range -->
+        <MudDateRangePicker Label="Диапазон дат"
+                            @bind-DateRange="_dateRange"
+                            ValueChanged="OnDateRangeChanged"
+                            Style="width:260px;" />
 
-            <!-- Method -->
-            @if (!OnlyPhoneBooked)
+    </MudStack>
+
+
+    <!-- TABLE -->
+    <MudTable T="Order"
+              @ref="_table"
+              ServerData="LoadOrders"
+              Hover="true"
+              Bordered="true"
+              Striped="true"
+              RowsPerPage="10"
+              SortLabel="Sort By"
+              Style="border: 1px solid black;">
+
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[] {10, 25, 50, 100}" />
+        </PagerContent>
+
+        <HeaderContent>
+            <MudTh><MudTableSortLabel T="Order" SortLabel="Id" SortBy="x => x.Id">ID</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel T="Order" SortLabel="Email" SortBy="x => x.Account.Email">Email</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel T="Order" SortLabel="AppointedTime" SortBy="x => x.AppointedTime">Назнач. время</MudTableSortLabel></MudTh>
+            <MudTh>Статус</MudTh>
+            <MudTh>Метод</MudTh>
+            <MudTh>Оплачен</MudTh>
+            <MudTh>Телефон</MudTh>
+            @if (OnlyPhoneBooked)
             {
-                <MudSelect T="OrderMethod?" @bind-Value="Method" @bind-Value:event="onchange" Label="Метод" Clearable="true" Dense="true" Style="width:160px;" ValueChanged="OnMethodChanged">
-                    <MudSelectItem T="OrderMethod?" Value="null">All</MudSelectItem>
-                    @foreach (var m in Enum.GetValues<OrderMethod>())
-                    {
-                        <MudSelectItem T="OrderMethod?" Value="m">@m</MudSelectItem>
-                    }
-                </MudSelect>
+                <MudTh></MudTh>
             }
-            <!-- Date range -->
-            <MudDateRangePicker Label="Диапазон дат"
-                                @bind-DateRange="_dateRange"
-                                ValueChanged="OnDateRangeChanged"
-                                Style="width:260px;" />
+        </HeaderContent>
 
-        </MudStack>
+        <RowTemplate Context="o">
+            <MudTd DataLabel="ID">@o.Id</MudTd>
+            <MudTd DataLabel="Account">@o.Account?.Email</MudTd>
+            <MudTd DataLabel="Appointed">@o.AppointedTime.ToString("yyyy-MM-dd HH:mm")</MudTd>
+            <MudTd>@o.Status</MudTd>
+            <MudTd>@o.Method</MudTd>
+            <MudTd>@(o.IsPaid ? "да" : "нет")</MudTd>
+            <MudTd>@(string.IsNullOrEmpty(o.Phone) && o.Account != null ? o.Account.Phone : o.Phone)</MudTd>
+            @if (OnlyPhoneBooked && o.Status != OrderStatus.Declined)
+            {
+                <MudTh><MudButton Color="Color.Error" @onclick="async () => await CancelOrder(o)">Отменить</MudButton></MudTh>
+            }
+        </RowTemplate>
 
+    </MudTable>
 
-        <!-- TABLE -->
-        <MudTable T="Order"
-                  @ref="_table"
-                  ServerData="LoadOrders"
-                  Hover="true"
-                  Bordered="true"
-                  Striped="true"
-                  RowsPerPage="10"
-                  SortLabel="Sort By">
-
-            <PagerContent>
-                <MudTablePager PageSizeOptions="new int[] {10, 25, 50, 100}" />
-            </PagerContent>
-
-            <HeaderContent>
-                <MudTh><MudTableSortLabel T="Order" SortLabel="Id" SortBy="x => x.Id">ID</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel T="Order" SortLabel="Email" SortBy="x => x.Account.Email">Email</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel T="Order" SortLabel="AppointedTime" SortBy="x => x.AppointedTime">Назнач. время</MudTableSortLabel></MudTh>
-                <MudTh>Статус</MudTh>
-                <MudTh>Метод</MudTh>
-                <MudTh>Оплачен</MudTh>
-                <MudTh>Телефон</MudTh>
-                @if (OnlyPhoneBooked)
-                {
-                    <MudTh></MudTh>
-                }
-            </HeaderContent>
-
-            <RowTemplate Context="o">
-                <MudTd DataLabel="ID">@o.Id</MudTd>
-                <MudTd DataLabel="Account">@o.Account?.Email</MudTd>
-                <MudTd DataLabel="Appointed">@o.AppointedTime.ToString("yyyy-MM-dd HH:mm")</MudTd>
-                <MudTd>@o.Status</MudTd>
-                <MudTd>@o.Method</MudTd>
-                <MudTd>@(o.IsPaid ? "да" : "нет")</MudTd>
-                <MudTd>@(string.IsNullOrEmpty(o.Phone) && o.Account != null ? o.Account.Phone : o.Phone)</MudTd>
-                @if (OnlyPhoneBooked && o.Status != OrderStatus.Declined)
-                {
-                    <MudTh><MudButton Color="Color.Error" @onclick="async () => await CancelOrder(o)">Отменить</MudButton></MudTh>
-                }
-            </RowTemplate>
-
-        </MudTable>
-
-    </MudPaper>
-</MudContainer>
+</MudPaper>
 
 @code {
     private MudTable<Order>? _table;
@@ -224,9 +224,13 @@
         if (confirmed == true)
         {
             var bsd = await Context.BarberScheduleDays.Where(d => d.BarberId == order.BarberId && d.Date == DateOnly.FromDateTime(order.AppointedTime)).FirstAsync();
-            
+
             order!.Status = OrderStatus.Declined;
             await OrderService.EraseOrderFromScheduleAsync(bsd, order);
+            if (bsd.Barber.AccountId != null)
+            {
+                await NotificationService.NotifyAsync(bsd.Barber.AccountId.Value, $"Заказ #{order.Id} был отменён", NotificationType.General);
+            }
 
             Snackbar.Add("Заказ успешно отменён", Severity.Success);
             StateHasChanged();

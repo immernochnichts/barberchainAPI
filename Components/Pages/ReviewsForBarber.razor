@@ -10,7 +10,7 @@
 {
     @foreach (var r in ReviewList)
     {
-        <MudCard Elevation="2" Class="mb-3">
+        <MudCard Class="mb-3 mx-2" Style="border: 1px solid black;">
             <MudCardContent>
                 <MudStack Spacing="1">
                     <MudStack AlignItems="AlignItems.Start" Spacing="2">
@@ -29,12 +29,9 @@
 
                     <MudText Typo="Typo.body2">@r.Text</MudText>
 
-                    @if (r.CreatedAt != null)
-                    {
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">
-                            @r.CreatedAt.ToString("dd MMMM yyyy")
-                        </MudText>
-                    }
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        @r.CreatedAt.ToString("dd MMMM yyyy")
+                    </MudText>
                     
                     @if (user != null && r.AccountId == userId)
                     {
@@ -68,7 +65,7 @@
 }
 else
 {
-    <MudPaper Elevation="3" Class="p-4 rounded-lg" Style="text-align:center;">
+    <MudPaper Elevation="3" Class="p-4" Style="text-align:center;">
         <MudIcon Icon="@Icons.Material.Filled.Reviews" Color="Color.Secondary" Size="Size.Large" />
         <MudText Typo="Typo.h6" Class="mt-2">Нет отзывов</MudText>
     </MudPaper>
@@ -84,16 +81,16 @@ else
 
     private int userId;
 
-    private Account account;
+    private Account account = default!;
 
-    private List<Review> ReviewList { get; set; }
+    private List<Review> ReviewList { get; set; } = default!;
 
     private Dictionary<int, string> AccountPics = new();
 
     protected override async Task OnInitializedAsync()
     {
         ReviewList = await Context.Reviews
-            .Where(r => r.BarberId == barber.Id)
+            .Where(r => r.BarberId == barber!.Id)
             .Include(r => r.Barber)
                 .ThenInclude(b => b.Account)
             .Include(r => r.Account)
@@ -110,7 +107,7 @@ else
 
         foreach (var r in ReviewList)
         {
-            if (user.Identity?.IsAuthenticated == true)
+            if (user!.Identity!.IsAuthenticated == true)
             {
                 string reporterId = user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value;
 
@@ -118,10 +115,10 @@ else
             }
         }
 
-        if (user != null && user.Identity.IsAuthenticated)
+        if (user != null && user.Identity!.IsAuthenticated)
         {
             userId = int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
-            account = await Context.Accounts.Where(a => a.Id == userId).FirstOrDefaultAsync();
+            account = (await Context.Accounts.Where(a => a.Id == userId).FirstOrDefaultAsync())!;
         }
     }
 
@@ -131,7 +128,7 @@ else
         {
             foreach (var r in ReviewList)
             {
-                if (!r.AlreadyReported && !user.Identity.IsAuthenticated)
+                if (!r.AlreadyReported && !user!.Identity!.IsAuthenticated)
                 {
                     string reporterId = await JS.InvokeAsync<string>("guest.getGuestId");
                     r.AlreadyReported = await JS.InvokeAsync<bool>("guest.hasReported", r.Id);

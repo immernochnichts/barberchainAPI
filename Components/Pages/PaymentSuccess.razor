@@ -6,6 +6,7 @@
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 @inject IOrderService OrderService
+@inject INotificationService NotificationService
 
 <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6 text-center">
 
@@ -88,6 +89,11 @@
             var bsd = await Context.BarberScheduleDays.Where(d => d.Date == DateOnly.FromDateTime(order.AppointedTime) && d.BarberId == order.BarberId).FirstAsync();
 
             await OrderService.EraseOrderFromScheduleAsync(bsd, order);
+
+            if (bsd.Barber.AccountId != null)
+            {
+                await NotificationService.NotifyAsync(bsd.Barber.AccountId.Value, $"Заказ #{order.Id} был отменён", NotificationType.General);
+            }
 
             Snackbar.Add("Заказ успешно отменён", Severity.Success);
         }

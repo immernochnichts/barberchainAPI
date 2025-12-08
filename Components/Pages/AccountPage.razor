@@ -18,8 +18,7 @@
 }
 else
 {
-    <MudContainer Style="max-width:900px;" Class="mx-auto mt-4">
-
+    <MudContainer  Style="max-width:850px;" Class="mx-auto pa-0 mt-4">
         @if (IsOwner)
         {
             <MudButton Color="Color.Error" @onclick="Logout">Выйти из аккаунта</MudButton>
@@ -36,7 +35,7 @@ else
 
             if (account.Role == AccountRole.Barber)
             {
-                <MudButtonGroup Style="background: darkblue;" Variant="Variant.Filled">
+                <MudButtonGroup Style="background: #276FBF;" Variant="Variant.Filled">
                     <MudButton Style="color:white;" Disabled="barber!.BshopId == null" @onclick="OpenAdjustmentDialog">Изменить расписание</MudButton>
                     <MudButton Style="color:white;" @onclick="() => CurrentComponent = AccountComponent.OrdersToDeliver">Заказы мне</MudButton>
                     <MudButton Style="color:white;" @onclick="() => CurrentComponent = AccountComponent.PhoneOrderPlacement">Оформить телефонный заказ</MudButton>
@@ -46,7 +45,7 @@ else
 
             if (account.Role == AccountRole.Manager || account.Role == AccountRole.Admin)
             {
-                <MudButtonGroup Style="background: deeppink;" Variant="Variant.Filled">
+                <MudButtonGroup Style="background: #DF1674;" Variant="Variant.Filled">
                     <MudButton Style="color:white;" @onclick="() => CurrentComponent = AccountComponent.UserList">Список пользователей</MudButton>
                     <MudButton Style="color:white;" @onclick="() => CurrentComponent = AccountComponent.ScheduleRequests">Заявки на изменение расписания</MudButton>
                     <MudButton Style="color:white;" @onclick="() => CurrentComponent = AccountComponent.ReportedReviews">Отзывы с жалобами</MudButton>
@@ -57,11 +56,14 @@ else
             {
                 <MudFlexBreak></MudFlexBreak>
 
-                <MudButtonGroup Style="background: darkturquoise;" Variant="Variant.Filled">
+                <MudButtonGroup Style="background: #54B6B2;" Variant="Variant.Filled">
                     <MudButton Style="color:white;" @onclick="() => CurrentComponent = AccountComponent.Complaints">Жалобы</MudButton>
                 </MudButtonGroup>
             }
         }
+    </MudContainer>
+
+    <MudContainer  Style="max-width:850px; border: 1px solid black;" Class="mx-auto pa-0">
         
         @switch (CurrentComponent)
         {

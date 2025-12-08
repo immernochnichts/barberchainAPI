@@ -37,7 +37,7 @@ namespace barberchainAPI.Functional.Services
         ///<summary>
         ///  Order status has to be set outside of the method
         ///</summary>
-        public async Task EraseOrderFromScheduleAsync(BarberScheduleDay bsd, Order order, bool notifyBarber = false)
+        public async Task EraseOrderFromScheduleAsync(BarberScheduleDay bsd, Order order)
         {
             int startIndex =
                order.AppointedTime.Hour * 4 +
@@ -53,26 +53,6 @@ namespace barberchainAPI.Functional.Services
                 }
             }
             _context.BarberScheduleDays.Update(bsd);
-
-            if (notifyBarber && bsd.Barber.AccountId != null)
-            {
-                Notification not = new Notification()
-                {
-                    Content = $"Заказ #{order.Id} был отменён",
-                    Type = NotificationType.General
-                };
-
-                _context.Notifications.Add(not);
-                await _context.SaveChangesAsync();
-
-                AccountNotification acc_not = new AccountNotification()
-                {
-                    AccountId = bsd.Barber.AccountId.Value,
-                    NotificationId = not.Id
-                };
-
-                _context.AccountNotifications.Add(acc_not);
-            }
 
             await _context.SaveChangesAsync();
         }

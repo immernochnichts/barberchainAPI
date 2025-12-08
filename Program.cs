@@ -59,6 +59,7 @@ namespace barberchainAPI
             builder.Services.AddScoped<ICreateScheduleService, CreateScheduleService>();
             builder.Services.AddScoped<IProfileService, ProfileService>();
             builder.Services.AddScoped<IOrderService, OrderService>();
+            builder.Services.AddScoped<INotificationService, NotificationService>();
 
             var app = builder.Build();
 

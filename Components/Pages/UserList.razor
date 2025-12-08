@@ -5,108 +5,115 @@
 <MudPopoverProvider />
 <MudDialogProvider></MudDialogProvider>
 
-<MudContainer Style="max-width:900px; width:max-content;" Class="mx-auto mt-4">
-    <MudPaper Class="pa-4">
+<MudPaper Class="pa-4">
 
-        <MudText Typo="Typo.h5" Class="mb-4">Пользователи системы</MudText>
+    <MudText Typo="Typo.h5" Class="mb-4">Пользователи системы</MudText>
 
-        <!-- Search + Filtering -->
-        <MudStack Row="true" Spacing="2" Class="mb">
-            <MudTextField   @bind-Value="searchString"
-                            Placeholder="Search users..."
-                            Adornment="Adornment.Start"
-                            AdornmentIcon="@Icons.Material.Filled.Search"
-                            OnKeyDown="OnSearchKeyDown"
-                            Immediate="true"
-                            Class="flex-grow-1 mt-4" />
+    <!-- Search + Filtering -->
+    <MudStack Row="true" Spacing="2" Class="mb-4">
+        <MudTextField @bind-Value="searchString"
+                      Placeholder="Search users..."
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      OnKeyDown="OnSearchKeyDown"
+                      Immediate="true"
+                      Class="flex-grow-1 mt-4" />
 
-            <MudSelect T="AccountRole?" @bind-Value="selectedRole" @bind-Value:event="onchange" Label="Role" Clearable="true" Dense="true" Style="width:200px;" ValueChanged="OnRoleChanged">
-                <MudSelectItem T="AccountRole?" Value="null">All</MudSelectItem>
-                @foreach (var role in Enum.GetValues<AccountRole>())
+        <MudSelect T="AccountRole?" @bind-Value="selectedRole" @bind-Value:event="onchange" Label="Role" Clearable="true" Dense="true" Style="width:200px;" ValueChanged="OnRoleChanged">
+            <MudSelectItem T="AccountRole?" Value="null">All</MudSelectItem>
+            @foreach (var role in Enum.GetValues<AccountRole>())
+            {
+                <MudSelectItem T="AccountRole?" Value="role">@role.ToString()</MudSelectItem>
+            }
+        </MudSelect>
+    </MudStack>
+
+    <!-- Table -->
+    <MudTable T="Account"
+              @ref="_table"
+              ServerData="LoadUsers"
+              Hover="true"
+              Bordered="true"
+              Striped="true"
+              SortLabel="Sort By"
+              RowsPerPage="10"
+              Style="border: 1px solid black; position: relative;">
+
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[] { 10, 25, 50, 100 }" />
+        </PagerContent>
+
+        <HeaderContent>
+            <MudTh><MudTableSortLabel T="Account" SortBy="x => x.Id" SortLabel="Id">ID</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel T="Account" SortBy="x => x.Email" SortLabel="Email">Email</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel T="Account" SortBy="x => x.Lastname" SortLabel="Lastname">Lastname</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel T="Account" SortBy="x => x.Restname" SortLabel="Restname">Restname</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel T="Account" SortBy="x => x.Role" SortLabel="Role">Role</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel T="Account" SortBy="x => x.RegTime" SortLabel="RegTime">Registered</MudTableSortLabel></MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+
+        <RowTemplate Context="u">
+            <MudTd Style="position: relative" DataLabel="ID">
+                @u.Id
+                @if (u.IsBanned)
                 {
-                     <MudSelectItem T="AccountRole?" Value="role">@role.ToString()</MudSelectItem>
+                    <MudText Style="color: crimson; opacity: 50%; user-select: none; pointer-events: none; position: absolute; width: max-content; bottom: 15px; left: 250px; font-weight: 900; font-size: xx-large;">
+                        BANNED. NO MERCY.
+                    </MudText>
                 }
-            </MudSelect>
-        </MudStack>
+            </MudTd>
+            <MudTd DataLabel="Email">@u.Email</MudTd>
+            <MudTd DataLabel="Lastname">@u.Lastname</MudTd>
+            <MudTd DataLabel="Restname">@u.Restname</MudTd>
+            <MudTd DataLabel="Role">@u.Role</MudTd>
+            <MudTd DataLabel="RegTime">@u.RegTime.ToString("yyyy-MM-dd")</MudTd>
+            <MudTd DataLabel="Actions">
+                <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true" OffsetY="true">
+                    @if (u.Role == AccountRole.User)
+                    {
+                        <MudMenuItem @onclick="() => HireBarber(u)">
+                            Нанять барбера
+                        </MudMenuItem>
+                    }
 
-        <!-- Table -->
-        <MudTable   T="Account"
-                    @ref="_table"
-                    ServerData="LoadUsers"
-                    Hover="true"
-                    Bordered="true"
-                    Striped="true"
-                    SortLabel="Sort By"
-                    RowsPerPage="10">
+                    @if (u.Role == AccountRole.User
+                    && Account.Role == AccountRole.Admin)
+                    {
+                        <MudMenuItem @onclick="() => HireManager(u)">
+                            Сделать менеджером
+                        </MudMenuItem>
+                    }
 
-            <PagerContent>
-                <MudTablePager PageSizeOptions="new int[] { 10, 25, 50, 100 }" />
-            </PagerContent>
+                    @if (u.Role == AccountRole.Barber ||
+                    u.Role == AccountRole.Manager &&
+                    Account.Role == AccountRole.Admin)
+                    {
+                        <MudMenuItem @onclick="() => Fire(u)">
+                            Уволить
+                        </MudMenuItem>
+                    }
+                    else if (u.Role == AccountRole.Barber
+                    && Account.Role == AccountRole.Manager
+                    && BarberHasThisManager(u, Account))
+                    {
+                        <MudMenuItem @onclick="() => Fire(u)">
+                            Уволить
+                        </MudMenuItem>
+                    }
 
-            <HeaderContent>
-                <MudTh><MudTableSortLabel T="Account" SortBy="x => x.Id" SortLabel="Id">ID</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel T="Account" SortBy="x => x.Email" SortLabel="Email">Email</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel T="Account" SortBy="x => x.Lastname" SortLabel="Lastname">Lastname</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel T="Account" SortBy="x => x.Restname" SortLabel="Restname">Restname</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel T="Account" SortBy="x => x.Role" SortLabel="Role">Role</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel T="Account" SortBy="x => x.RegTime" SortLabel="RegTime">Registered</MudTableSortLabel></MudTh>
-                <MudTh></MudTh>
-            </HeaderContent>
+                    @if (u.Role != AccountRole.Admin && Account.Role == AccountRole.Admin)
+                    {
+                        <MudMenuItem @onclick="() => ToggleBanned(u)">
+                            @(u.IsBanned ? "Разблокировать" : "Заблокировать")
+                        </MudMenuItem>
+                    }
+                </MudMenu>
+            </MudTd>
+        </RowTemplate>
 
-            <RowTemplate Context="u">
-                <MudTd Style=@(u.IsBanned ? "background-color:crimson;" : "") DataLabel="ID">@u.Id</MudTd>
-                <MudTd DataLabel="Email">@u.Email</MudTd>
-                <MudTd DataLabel="Lastname">@u.Lastname</MudTd>
-                <MudTd DataLabel="Restname">@u.Restname</MudTd>
-                <MudTd DataLabel="Role">@u.Role</MudTd>
-                <MudTd DataLabel="RegTime">@u.RegTime.ToString("yyyy-MM-dd")</MudTd>
-                <MudTd DataLabel="Actions">
-                    <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true" OffsetY="true">
-                        @if (u.Role == AccountRole.User)
-                        {
-                            <MudMenuItem @onclick="() => HireBarber(u)">
-                                Нанять барбера
-                            </MudMenuItem>
-                        }
-
-                        @if (u.Role == AccountRole.User 
-                            && Account.Role == AccountRole.Admin)
-                        {
-                            <MudMenuItem @onclick="() => HireManager(u)">
-                                Сделать менеджером
-                            </MudMenuItem>
-                        }
-
-                        @if (u.Role == AccountRole.Barber ||
-                                u.Role == AccountRole.Manager &&
-                                Account.Role == AccountRole.Admin)
-                        {
-                            <MudMenuItem @onclick="() => Fire(u)">
-                                Уволить
-                            </MudMenuItem>
-                        }
-                        else if (u.Role == AccountRole.Barber 
-                                && Account.Role == AccountRole.Manager
-                                && BarberHasThisManager(u, Account))
-                        {
-                            <MudMenuItem @onclick="() => Fire(u)">
-                                Уволить
-                            </MudMenuItem>
-                        }
-
-                        @if (u.Role != AccountRole.Admin && Account.Role == AccountRole.Admin)
-                        {
-                            <MudMenuItem @onclick="() => ToggleBanned(u)">
-                                @(u.IsBanned ? "Разблокировать" : "Заблокировать")
-                            </MudMenuItem>
-                        }
-                    </MudMenu>
-                </MudTd>
-            </RowTemplate>
-
-        </MudTable>
-    </MudPaper>
-</MudContainer>
+    </MudTable>
+</MudPaper>
 
 @code
 {

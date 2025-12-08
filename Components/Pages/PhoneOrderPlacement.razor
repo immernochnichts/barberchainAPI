@@ -3,41 +3,45 @@
 @inject IDialogService DialogService
 @inject NavigationManager Navigation
 @inject IProfileService ProfileService
+@inject INotificationService NotificationService
+@inject BarberchainDbContext Context
 
 @*<MudPopoverProvider></MudPopoverProvider>*@
 <MudDialogProvider></MudDialogProvider>
 
-<MudContainer Class="mt-4" Style="width:100%;">
-    <MudPaper Class="pa-4">
-        <MudContainer Style="margin-bottom: 12px; border-radius: 0.5rem; border: 1px solid black; width: 80%;">
-            <MudStack Class="mb-4 mt-4" Row="true" AlignItems="AlignItems.Center">
-                <MudText>Сотрудник: </MudText>
-                <MudSelect Style="max-width: fit-content;" T="Barber" @bind-Value="@_selectedBarber" Text="@(_selectedBarber?.Account.Lastname + " " + _selectedBarber?.Account.Restname)">
-                    @if (Barber != null)
+<MudPaper Class="mt-4">
+    <MudContainer Style="margin-bottom: 12px; border-radius: 0.5rem; border: 1px solid black; width: 80%;">
+        <MudStack Class="mt-4 mb-4" Row="true" AlignItems="AlignItems.Center">
+            <MudText>Адрес: </MudText>
+            <MudText style="width: fit-content;">@Barber?.Bshop.Address</MudText>
+        </MudStack>
+        <MudStack Class="mb-4 mt-4" Row="true" AlignItems="AlignItems.Center">
+            <MudText>Сотрудник: </MudText>
+            <MudSelect Style="max-width: fit-content;" T="Barber" @bind-Value="@_selectedBarber" Text="@(_selectedBarber?.Account.Lastname + " " + _selectedBarber?.Account.Restname)">
+                @if (Barber != null)
+                {
+                    foreach (var b in Barber.Bshop.Barbers)
                     {
-                        foreach (var b in Barber.Bshop.Barbers)
-                        {
-                            <MudSelectItem T="Barber" Value="@b">@b.Account.Lastname @b.Account.Restname</MudSelectItem>
-                        }
+                        <MudSelectItem T="Barber" Value="@b">@b.Account.Lastname @b.Account.Restname</MudSelectItem>
                     }
-                </MudSelect>
-            </MudStack>
-            <MudStack Class="mb-4" Row="true" AlignItems="AlignItems.Center">
-                <MudText>Дата: </MudText>
-                <MudDatePicker style="width: fit-content;" @bind-Date="@_selectedDate"></MudDatePicker>
-            </MudStack>
-            <MudStack Class="mb-4" Row="true" AlignItems="AlignItems.Center">
-                <MudText>Номер телефона: </MudText>
-                <MudTextField Style="width: fit-content;" T="string" @bind-Value="@orderBeingCreated.Phone"></MudTextField>
-            </MudStack>
-            <MudButton Disabled="@(_selectedBarber == null)" Class="mb-4 ml-auto" @onclick="OpenBookDialogAsync" Variant="Variant.Filled" Color="Color.Primary">
-                Забронировать
-            </MudButton>
-        </MudContainer>
+                }
+            </MudSelect>
+        </MudStack>
+        <MudStack Class="mb-4" Row="true" AlignItems="AlignItems.Center">
+            <MudText>Дата: </MudText>
+            <MudDatePicker IsDateDisabledFunc="@((DateTime dt)=>(dt < DateTime.Today || dt > DateTime.Today.AddDays(7)) || dt.DayOfWeek == DayOfWeek.Saturday || dt.DayOfWeek == DayOfWeek.Sunday)" Style="width: fit-content;" @bind-Date="@_selectedDate"></MudDatePicker>
+        </MudStack>
+        <MudStack Class="mb-4" Row="true" AlignItems="AlignItems.Center">
+            <MudText>Номер телефона: </MudText>
+            <MudTextField Style="width: fit-content;" T="string" @bind-Value="@orderBeingCreated.Phone"></MudTextField>
+        </MudStack>
+        <MudButton Disabled="@(_selectedBarber == null || string.IsNullOrEmpty(orderBeingCreated.Phone))" Class="mb-4 ml-auto" @onclick="OpenBookDialogAsync" Variant="Variant.Filled" Color="Color.Primary">
+            Забронировать
+        </MudButton>
+    </MudContainer>
 
-        <OrdersToDeliver Method="OrderMethod.Phone" User="@User" OnlyPhoneBooked="true"></OrdersToDeliver>
-    </MudPaper>
-</MudContainer>
+    <OrdersToDeliver Method="OrderMethod.Phone" User="@User" OnlyPhoneBooked="true"></OrdersToDeliver>
+</MudPaper>
 
 @code
 {
@@ -78,6 +82,10 @@
         if (dialogRes != null && !dialogRes.Canceled)
         {
             orderBeingCreated = (dialogRes.Data as Order)!;
+
+            await NotificationService.NotifyAsync(Barber.AccountId!.Value,
+                $"У вас новый заказ #{orderBeingCreated.Id} на {orderBeingCreated.AppointedTime}\nУслуги: " + string.Join(", ", Context.OrderJobs.Where(oj => oj.OrderId == orderBeingCreated.Id).Select(oj => oj.Job.Name)),
+                NotificationType.General);
         }
     }
 }

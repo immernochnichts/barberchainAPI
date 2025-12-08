@@ -25,15 +25,13 @@
 }
 else
 {
-    <MudPaper Elevation="3" Class="p-4 rounded-lg">
+    <MudPaper Class="p-4">
 
-        <MudContainer Style="display:flex; padding-top:1rem; gap:1.5rem;">
+        <MudContainer Style="display:flex; padding-top:1rem;">
 
         <!-- Profile picture -->
         <div style="position:relative;">
             <MudImage Src="@AccountPage.GetImageSrc(IsEditing ? EditableAccount.ProfilePic : account.ProfilePic)"
-                      Class="rounded-lg"
-                      Elevation="25"
                       ObjectFit="ObjectFit.Cover"
                       Style="max-width:350px; max-height:400px; margin-bottom:1rem;" />
 
@@ -48,7 +46,16 @@ else
 
             @if (!IsEditing)
             {
-                <MudText Typo="Typo.h5">@account.Lastname @account.Restname</MudText>
+                <MudStack Row="true" Justify="Justify.SpaceBetween" Style="width: 100%;">
+                    <MudText Typo="Typo.h5">@account.Lastname @account.Restname</MudText>
+                    @if (user != null && user.Identity!.IsAuthenticated && account.Id == int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value))
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Style="margin-bottom: 1rem; height: fit-content;" Class="ml-auto"
+                                    OnClick="StartEditing">
+                            Редактировать
+                        </MudButton>
+                    }
+                </MudStack>
                 <MudText Typo="Typo.h6">обо мне:</MudText>
                 <MudText Typo="Typo.subtitle1" Class="text-secondary">@account.Bio</MudText>
                 <MudText Typo="Typo.h6">день рождения: @account.BirthDate</MudText>
@@ -56,10 +63,6 @@ else
                 {
                     <MudText Typo="Typo.subtitle2" Align="Align.Start">электронная почта: @account.Email</MudText>
                     <MudText Typo="Typo.subtitle2" Align="Align.Start">номер телефона: @account.Phone</MudText>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Style="margin-bottom: 1rem;" Class="ml-auto mt-auto"
-                                OnClick="StartEditing">
-                        Редактировать
-                    </MudButton>
                 }
             }
             else
@@ -70,9 +73,9 @@ else
                 <MudDatePicker @bind-Date="BirthDateEdit" Label="день рождения" />
                 <MudTextField @bind-Value="EditableAccount.Phone" Label="номер телефона" Lines="1" />
 
-                <MudStack Direction="Row" Spacing="2" Class="mt-3 mb-3">
+                <MudStack Row="true" Spacing="2" Class="mt-3 mb-3">
 
-                    <MudButton Variant="Variant.Filled" Color="Color.Success"
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
                                OnClick="SaveEditing">
                         Сохранить
                     </MudButton>
@@ -87,18 +90,20 @@ else
 
             @if (account.Role == AccountRole.Barber)
             {
-                <MudText Typo="Typo.h6" Align="Align.Center">что я умею:</MudText>
-                <MudText Typo="Typo.body1" Align="Align.Center" Class="text-secondary">
+                <MudText Typo="Typo.h6">что я умею:</MudText>
+                <MudText Style="width: fit-content;" Typo="Typo.body1" Class="text-secondary">
                     @if (jobs is not null && cart != null)
                     {
                         <MudList T="string">
-                            @foreach (var job in jobs)
-                            {
-                                <MudContainer Class="d-flex" Style="align-items:center">
-                                    <MudListItem Text=@job.Job.Name SecondaryText=@(job.Price is null ? job.Job.DefaultPrice.ToString() : job.Price.ToString()) />
-                                    <MudButton @onclick="async () => { await OnServiceClicked(job.Job); }" Disabled="false" Style=@($"background:{(cart.JobSet.Contains(job.Job) ? "gray" : job.Job.ColorCSS)}; height:min-content;")>@(cart.JobSet.Contains(job.Job) ? "Добавлено" : "")</MudButton>
-                                </MudContainer>
-                            }
+                            <MudStack Row="true" Style="justify-content: flex-start; align-items: flex-start; flex-wrap: wrap;">
+                                @foreach (var job in jobs)
+                                {
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.FlexStart">
+                                        <MudListItem Text=@job.Job.Name SecondaryText=@(job.Price is null ? job.Job.DefaultPrice.ToString() : job.Price.ToString()) Style="width: fit-content;" />
+                                        <MudButton @onclick="async () => { await OnServiceClicked(job.Job); }" Style=@($"background:{(cart.JobSet.Contains(job.Job) ? "gray" : job.Job.ColorCSS)}; height:fit-content;")>@(cart.JobSet.Contains(job.Job) ? "Добавлено" : "")</MudButton>
+                                    </MudStack>
+                                }
+                            </MudStack>
                         </MudList>
                     }
                 </MudText>
@@ -119,8 +124,8 @@ else
                 {
                     <MudGrid GutterSize="2">
                         <MudItem xs="6" sm="4" md="3">
-                            <MudPaper Elevation="1" Class="p-1 rounded">
-                                <MudImage Src="@AccountPage.GetImageSrc(img.ImgFile)" Alt="Auxiliary image" Style="width:100%;height:auto;" />
+                            <MudPaper Elevation="1" Class="p-1">
+                                <MudImage Src="@AccountPage.GetImageSrc(img.ImgFile)" Alt="Auxiliary image" Style="width:100%; height:auto;" />
                             </MudPaper>
                         </MudItem>
                     </MudGrid>
@@ -134,24 +139,23 @@ else
             <MudDivider Class="my-4" />
 
             <!-- Calendar Section -->
-            <MudText Typo="Typo.h6" Class="mb-2">Schedule</MudText>
-            <MudDatePicker IsDateDisabledFunc="@((DateTime dt)=>(dt < DateTime.Today || dt > DateTime.Today.AddDays(7)))" PickerVariant="PickerVariant.Static" Orientation="Orientation.Landscape" @bind-Date="_selectedDate" />
+            <MudText Typo="Typo.h6" Class="ml-4 mb-2">Бронирование</MudText>
+            <MudStack Class="ml-4" Style="width: fit-content;" Row="true">
+                <MudDatePicker IsDateDisabledFunc="@((DateTime dt)=>(dt < DateTime.Today || dt > DateTime.Today.AddDays(7)) || dt.DayOfWeek == DayOfWeek.Saturday || dt.DayOfWeek == DayOfWeek.Sunday)" Style="width: 80%;" PickerVariant="PickerVariant.Inline" Orientation="Orientation.Landscape" @bind-Date="_selectedDate" />
+                <MudButton Style="ml-6 mr-8" @onclick="OpenBookDialogAsync" Variant="Variant.Filled" Color="Color.Primary">
+                    Забронировать
+                </MudButton>
+            </MudStack>
+
 
             <MudDivider Class="my-4" />
 
-            <MudButton @onclick="OpenBookDialogAsync" Variant="Variant.Filled" Color="Color.Primary">
-                Забронировать
-            </MudButton>
-
-
-            <MudDivider Class="my-4" />
-
-            <MudPaper Elevation="3" Class="p-6 rounded-lg">
+            <MudPaper Class="p-6">
                 <MudStack Spacing="3">
                     <MudText Typo="Typo.h4">Отзывы</MudText>
                     <AuthorizeView>
                         <MudExpansionPanel Text="Оставить отзыв" @ref="reviewPanel">
-                            <MudPaper Class="pa-4">
+                            <MudPaper Class="pa-4" Style="border: 1px solid black;">
                                 <MudForm @ref="_form" @bind-IsValid="isFormValid">
                                     <MudRating @bind-SelectedValue="reviewModel.Score" MaxValue="5" Size="Size.Large" Required="true" />
 

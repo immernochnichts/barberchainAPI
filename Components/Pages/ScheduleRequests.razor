@@ -62,50 +62,48 @@
     }
 </style>
 
-<MudContainer MaxWidth="MaxWidth.Large" Class="mx-auto mt-4">
-    <MudPaper Class="pa-4">
-        <MudText Typo="Typo.h5" Class="mb-4">Заявки на изменение расписания</MudText>
+<MudPaper Class="pa-4">
+    <MudText Typo="Typo.h5" Class="mb-4">Заявки на изменение расписания</MudText>
 
-        @if (requests == null)
-        {
-            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-        }
-        else if (!requests.Any())
-        {
-            <MudText>Заявок нет</MudText>
-        }
-        else
-        {
-            <MudTable Items="requests" Hover="true" Bordered="true" Striped="true">
-                <HeaderContent>
-                    <MudTh>Barber</MudTh>
-                    <MudTh>Date</MudTh>
-                    <MudTh>Reason</MudTh>
-                    <MudTh>Requested Changes</MudTh>
-                    <MudTh>Status</MudTh>
-                    <MudTh>Actions</MudTh>
-                </HeaderContent>
+    @if (requests == null)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (!requests.Any())
+    {
+        <MudText>Заявок нет</MudText>
+    }
+    else
+    {
+        <MudTable Items="requests" Hover="true" Bordered="true" Striped="true">
+            <HeaderContent>
+                <MudTh>Barber</MudTh>
+                <MudTh>Date</MudTh>
+                <MudTh>Reason</MudTh>
+                <MudTh>Requested Changes</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh>Actions</MudTh>
+            </HeaderContent>
 
-                <RowTemplate Context="r">
-                    <MudTd>@r.Barber.Account.Lastname @r.Barber.Account.Restname</MudTd>
-                    <MudTd>@r.RequestDate.ToString("yyyy-MM-dd")</MudTd>
-                    <MudTd>@r.Message</MudTd>
-                    <MudTd>
-                        @ScReqService.GetScheduleChangesAsync(r.Id)
-                    </MudTd>
-                    <MudTd>@r.Status</MudTd>
-                    <MudTd>
-                        @if (r.Status == ScheduleRequestStatus.Pending)
-                        {
-                            <MudButton Color="Color.Success" Size="Size.Small" OnClick="() => ApproveRequest(r.Id)">Approve</MudButton>
-                            <MudButton Color="Color.Error" Size="Size.Small" OnClick="() => DeclineRequest(r.Id)">Decline</MudButton>
-                        }
-                    </MudTd>
-                </RowTemplate>
-            </MudTable>
-        }
-    </MudPaper>
-</MudContainer>
+            <RowTemplate Context="r">
+                <MudTd>@r.Barber.Account.Lastname @r.Barber.Account.Restname</MudTd>
+                <MudTd>@r.RequestDate.ToString("yyyy-MM-dd")</MudTd>
+                <MudTd>@r.Message</MudTd>
+                <MudTd>
+                    @ScReqService.GetScheduleChangesAsync(r.Id)
+                </MudTd>
+                <MudTd>@r.Status</MudTd>
+                <MudTd>
+                    @if (r.Status == ScheduleRequestStatus.Pending)
+                    {
+                        <MudButton Color="Color.Success" Size="Size.Small" OnClick="() => ApproveRequest(r.Id)">Approve</MudButton>
+                        <MudButton Color="Color.Error" Size="Size.Small" OnClick="() => DeclineRequest(r.Id)">Decline</MudButton>
+                    }
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
 
 @code {
     private List<ScheduleRequest> requests = default!;

@@ -1,7 +1,8 @@
 ﻿@using barberchainAPI.Components.Layout
 @using Microsoft.AspNetCore.Components.Authorization
+@using MudBlazor.Utilities;
 
-<MudThemeProvider />
+<MudThemeProvider Theme="siteTheme" />
 
 <Router AppAssembly="typeof(Program).Assembly">
     <Found Context="routeData">
@@ -9,3 +10,15 @@
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
 </Router>
+
+@code
+{
+    MudTheme siteTheme = new MudTheme()
+    {
+        PaletteLight = new PaletteLight()
+        {
+            Primary = new MudColor("#050517"),
+            Secondary = new MudColor("#020122")
+        },
+    };
+}

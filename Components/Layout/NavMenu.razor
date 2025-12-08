@@ -3,9 +3,9 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using MudBlazor
 
-<MudAppBar Elevation="1">
-        <a href="/">
-            <MudText Typo="Typo.h5" Class="ml-3">Barberchain</MudText>
+<MudAppBar Color="Color.Primary" Elevation="1">
+        <a href="/" style="color:white; text-decoration: none;">
+            <MudText Typo="Typo.h5" Class="ml-3">BARBERCHAIN</MudText>
         </a>
         <MudSpacer />
         <AuthorizeView>
@@ -18,7 +18,7 @@
         {
             <MudBadge Content="@NotificationCount" Color="Color.Secondary" Overlap="true" Class="mx-6 my-4">
                 <MudIconButton @onclick="AccessProfile" Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" Edge="Edge.End" />
-        </MudBadge>
+            </MudBadge>
         }
         else
         {
