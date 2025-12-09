@@ -1,11 +1,15 @@
 ﻿@namespace barberchainAPI.Components.Pages
 @inject BarberchainDbContext Context
+@inject IDialogService DialogService
 
 @if (NotificationList?.Count > 0)
 {
     <MudPaper Class="p-4 pa-4">
         <MudStack Spacing="2">
-            <MudText Typo="Typo.h5" Class="mb-2">Уведомления</MudText>
+            <MudStack Row="true" Justify="Justify.SpaceBetween">
+                <MudText Typo="Typo.h5" Class="mb-2">Уведомления</MudText>
+                <MudButton OnClick="DeleteAll" Color="Color.Error">Удалить все</MudButton>
+            </MudStack>
             <MudDivider Class="mb-2" />
 
             @foreach (var n in NotificationList)
@@ -23,6 +27,7 @@
                                             Class="@(n.IsViewed ? "text-muted" : "")">
                                     @GetTypeNameRus(n.Type)
                                 </MudText>
+                                <MudIconButton @onclick="async () => await DeleteOne(n.NotificationId)" Color="Color.Error" Icon="@Icons.Material.Filled.Delete" Class="ml-auto"></MudIconButton>
                             </MudStack>
 
                             <MudText Typo="Typo.body2"
@@ -32,7 +37,7 @@
 
                             <MudText Typo="Typo.caption" Color="Color.Secondary">
                                 @n.CreatedAt?.ToString("dd MMMM yyyy HH:mm")
-                                (@GetRelativeTime(n.CreatedAt.Value))
+                                (@GetRelativeTime(n.CreatedAt!.Value))
                             </MudText>
                         </MudStack>
                     </MudCardContent>
@@ -68,6 +73,11 @@ else
     private List<NotificationViewModel> NotificationList { get; set; } = new();
 
     protected override async Task OnInitializedAsync()
+    {
+        await InitList();
+    }
+
+    private async Task InitList()
     {
         NotificationList = await Context.AccountNotifications
             .Where(an => an.AccountId == id)
@@ -153,5 +163,43 @@ else
         public NotificationType Type { get; set; }
         public string Content { get; set; }
         public DateTime? CreatedAt { get; set; }
+    }
+
+    public async Task DeleteAll()
+    {
+        bool? confirmed = await DialogService.ShowMessageBox(
+            "Подтвердите удаление",
+            $"Удалить все уведомления?",
+            yesText: "Удалить", cancelText: "Отмена");
+
+        if (confirmed == true)
+        {
+            foreach (var n in NotificationList)
+            {
+                var not = await Context.Notifications.FindAsync(n.NotificationId);
+                Context.Notifications.Remove(not!);
+            }
+            await Context.SaveChangesAsync();
+            await InitList();
+            StateHasChanged();
+        }
+    }
+
+    public async Task DeleteOne(int notId)
+    {
+        bool? confirmed = await DialogService.ShowMessageBox(
+            "Подтвердите удаление",
+            $"Удалить уведомление?",
+            yesText: "Удалить", cancelText: "Отмена");
+
+        if (confirmed == true)
+        {
+            var n = await Context.Notifications.FindAsync(notId);
+
+            Context.Notifications.Remove(n);
+            await Context.SaveChangesAsync();
+            await InitList();
+            StateHasChanged();
+        }
     }
 }

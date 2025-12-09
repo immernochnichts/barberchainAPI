@@ -2,8 +2,6 @@
 @using barberchainAPI.Data
 @inject BarberchainDbContext Context
 
-<MudPopoverProvider></MudPopoverProvider>
-
 <MudPaper Class="pa-4" Elevation="4">
 
     <MudText Typo="Typo.h5" Class="mb-4">Жалобы на менеджеров</MudText>
@@ -78,7 +76,7 @@
         .GroupBy(c => new { c.AccountTargetId, c.Target.Lastname, c.Target.Restname, c.Target.ProfilePic})
         .Select(g => new ComplaintGroup
         {
-            TargetName = g.Key.Lastname + g.Key.Restname,
+            TargetName = g.Key.Lastname + " " + g.Key.Restname,
             Complaints = g.OrderByDescending(x => x.CreatedAt).ToList(),
             TargetAvatar = AccountPage.GetImageSrc(g.Key.ProfilePic)
         });

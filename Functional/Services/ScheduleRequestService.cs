@@ -110,9 +110,9 @@ namespace barberchainAPI.Functional.Services
 
                 order.Status = OrderStatus.Declined;
 
-                var bsd = await _context.BarberScheduleDays.Where(d => d.Date == req.RequestDate && req.BarberId == d.BarberId).FirstAsync();
+                //var bsd = await _context.BarberScheduleDays.Where(d => d.Date == req.RequestDate && req.BarberId == d.BarberId).FirstAsync();
 
-                await _orderService.EraseOrderFromScheduleAsync(bsd, order);
+                //await _orderService.EraseOrderFromScheduleAsync(bsd, order);
             }
         }
 

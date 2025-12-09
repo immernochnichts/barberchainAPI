@@ -12,6 +12,10 @@
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
 @if (account is null)
 {
     <MudProgressCircular Color="Color.Primary" Indeterminate="true" />

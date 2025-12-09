@@ -6,9 +6,6 @@
 @inject INotificationService NotificationService
 @inject BarberchainDbContext Context
 
-@*<MudPopoverProvider></MudPopoverProvider>*@
-<MudDialogProvider></MudDialogProvider>
-
 <MudPaper Class="pa-4">
     <MudContainer Style="margin-bottom: 12px; border-radius: 0.5rem; border: 1px solid black; width: 80%;">
         <MudStack Class="mt-4 mb-4" Row="true" AlignItems="AlignItems.Center">
@@ -64,7 +61,7 @@
 
     private async Task OpenBookDialogAsync()
     {
-        var atuPattern = await ProfileService.GetAvailabilityForDayAsync(Barber!.Id, _selectedDate);
+        var atuPattern = await ProfileService.GetAvailabilityForDayAsync(_selectedBarber.Id, _selectedDate);
         var jobSet = Barber.BarberJobs.Select(x => x.Job);
 
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.ExtraExtraLarge, FullWidth = true };

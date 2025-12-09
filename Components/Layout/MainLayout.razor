@@ -32,7 +32,7 @@ background-size: 20px 100%;
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         User = authState.User;
 
-        if (User != null && User.Identity.IsAuthenticated)
+        if (User != null && User.Identity!.IsAuthenticated)
         {
             var userId = int.Parse(User.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
             notificationCount = Context.AccountNotifications.Where(an => an.AccountId == userId && !an.IsViewed).Count();
@@ -51,7 +51,7 @@ background-size: 20px 100%;
             var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (int.TryParse(userIdClaim, out var userId))
             {
-                Navigation.NavigateTo($"/account/{userId}");
+                Navigation.NavigateTo($"/account/{userId}?component=Profile");
                 Navigation.Refresh();
             }
         }

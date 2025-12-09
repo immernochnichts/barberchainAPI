@@ -6,8 +6,6 @@
 @inject IOrderService OrderService
 @inject INotificationService NotificationService
 
-<MudPopoverProvider></MudPopoverProvider>
-
 <MudPaper Class="pa-4">
 
     <MudText Typo="Typo.h5" Class="mb-4">@(OnlyPhoneBooked ? "Заказы по телефону" : "Список заказов мне")</MudText>
@@ -68,7 +66,7 @@
 
         <HeaderContent>
             <MudTh><MudTableSortLabel T="Order" SortLabel="Id" SortBy="x => x.Id">ID</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel T="Order" SortLabel="Email" SortBy="x => x.Account.Email">Email</MudTableSortLabel></MudTh>
+            <MudTh>Email</MudTh>
             <MudTh><MudTableSortLabel T="Order" SortLabel="AppointedTime" SortBy="x => x.AppointedTime">Назнач. время</MudTableSortLabel></MudTh>
             <MudTh>Статус</MudTh>
             <MudTh>Метод</MudTh>
@@ -76,6 +74,7 @@
             <MudTh>Телефон</MudTh>
             @if (OnlyPhoneBooked)
             {
+                <MudTh>Сотрудник</MudTh>
                 <MudTh></MudTh>
             }
         </HeaderContent>
@@ -88,9 +87,13 @@
             <MudTd>@o.Method</MudTd>
             <MudTd>@(o.IsPaid ? "да" : "нет")</MudTd>
             <MudTd>@(string.IsNullOrEmpty(o.Phone) && o.Account != null ? o.Account.Phone : o.Phone)</MudTd>
+            @if (OnlyPhoneBooked)
+            {
+                <MudTd>@o.Barber.Account.Lastname</MudTd>
+            }
             @if (OnlyPhoneBooked && o.Status != OrderStatus.Declined)
             {
-                <MudTh><MudButton Color="Color.Error" @onclick="async () => await CancelOrder(o)">Отменить</MudButton></MudTh>
+                <MudTd><MudButton Color="Color.Error" @onclick="async () => await CancelOrder(o)">Отменить</MudButton></MudTd>
             }
         </RowTemplate>
 

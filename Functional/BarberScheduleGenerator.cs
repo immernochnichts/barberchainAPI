@@ -47,6 +47,9 @@ namespace barberchainAPI.Functional
             {
                 var date = today.AddDays(offset);
 
+                if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+                    continue;
+
                 foreach (var barber in barbers)
                 {
                     var exists = await context.BarberScheduleDays

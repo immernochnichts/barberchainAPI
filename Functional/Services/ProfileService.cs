@@ -65,12 +65,7 @@ namespace barberchainAPI.Functional.Services
 
         public async Task<Tuple<string, Severity>> SubmitReviewAsync(SubmitReviewDto dto)
         {
-            if (!await _context.Orders.AnyAsync(o => o.BarberId == dto.Barber!.Id && o.AccountId == dto.UserId && o.Status == OrderStatus.Complete))
-            {
-                return Tuple.Create("Вы не можете оставить отзыв о сотруднике, если у вас нет с ним ни единого выполненного заказа", Severity.Info);
-            }
-
-            if (await _context.Reviews.AnyAsync(r => r.BarberId == dto.Barber!.Id && r.AccountId == dto.UserId))
+            if (!await _context.Reviews.AnyAsync(r => r.BarberId == dto.Barber!.Id && r.AccountId == dto.UserId))
             {
                 dto.Barber!.ReviewSum += dto.ReviewModel.Score;
                 dto.Barber!.ReviewCount += 1;

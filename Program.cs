@@ -55,11 +55,13 @@ namespace barberchainAPI
             builder.Services.AddScoped<LocalStorageService>();
             builder.Services.AddScoped<CartService>();
             builder.Services.AddHostedService<OrderExpirationService>();
+            builder.Services.AddHostedService<OrderUpdaterService>();
             builder.Services.AddScoped<IScheduleRequestService, ScheduleRequestService>();
             builder.Services.AddScoped<ICreateScheduleService, CreateScheduleService>();
             builder.Services.AddScoped<IProfileService, ProfileService>();
             builder.Services.AddScoped<IOrderService, OrderService>();
             builder.Services.AddScoped<INotificationService, NotificationService>();
+            builder.Services.AddScoped<IMapService, MapService>();
 
             var app = builder.Build();
 

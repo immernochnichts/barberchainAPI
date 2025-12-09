@@ -13,10 +13,6 @@
 @inject NavigationManager Navigation
 @inject IProfileService ProfileService
 
-<MudPopoverProvider />
-<MudDialogProvider />
-<MudSnackbarProvider />
-
 @if (account is null)
 {
     <MudText>
@@ -67,11 +63,11 @@ else
             }
             else
             {
-                <MudTextField @bind-Value="EditableAccount.Lastname" Label="фамилия (или username)" />
-                <MudTextField @bind-Value="EditableAccount.Restname" Label="имя отчество" />
-                <MudTextField @bind-Value="EditableAccount.Bio" Label="о себе" Lines="3" />
+                <MudTextField MaxLength="256" @bind-Value="EditableAccount.Lastname" Label="фамилия (или username)" />
+                <MudTextField MaxLength="256" @bind-Value="EditableAccount.Restname" Label="имя отчество" />
+                <MudTextField MaxLength="256" @bind-Value="EditableAccount.Bio" Label="о себе" Lines="3" />
                 <MudDatePicker @bind-Date="BirthDateEdit" Label="день рождения" />
-                <MudTextField @bind-Value="EditableAccount.Phone" Label="номер телефона" Lines="1" />
+                <MudTextField MaxLength="20" @bind-Value="EditableAccount.Phone" Label="номер телефона" Lines="1" />
 
                 <MudStack Row="true" Spacing="2" Class="mt-3 mb-3">
 
@@ -117,23 +113,34 @@ else
             <MudDivider Class="my-4" />
 
             <!-- Auxiliary Pictures Grid -->
-            <MudText Typo="Typo.h6" Class="mb-2">Gallery</MudText>
+            <MudText Typo="Typo.h6" Class="ml-4 mb-2">Галерея</MudText>
             @if (barber?.Images != null && barber.Images.Any())
             {
-                @foreach (var img in barber.Images)
+                @for (int i = 0; i < barber.Images.Count; i++)
                 {
+                    var img = barber.Images.ElementAt(i);
+
                     <MudGrid GutterSize="2">
                         <MudItem xs="6" sm="4" md="3">
                             <MudPaper Elevation="1" Class="p-1">
                                 <MudImage Src="@AccountPage.GetImageSrc(img.ImgFile)" Alt="Auxiliary image" Style="width:100%; height:auto;" />
                             </MudPaper>
                         </MudItem>
+                        <MudItem xs="6" sm="4" md="3">
+                            <MudImage @onclick="() => OpenGallery(i)" Src="@AccountPage.GetImageSrc(img.ImgFile)"
+                                      Alt="Auxiliary image"
+                                      Style="width:200px; height:200px; cursor:pointer; box-shadow: 0 0 20px rgba(0,0,0,0.5);"
+                                      ObjectFit="ObjectFit.Cover" />
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudGrid>
                     </MudGrid>
                 }
             }
             else
             {
-                <MudText Align="Align.Left">No images available</MudText>
+                <MudText Class="ml-4" Align="Align.Left">Нет изображений</MudText>
             }
 
             <MudDivider Class="my-4" />
@@ -141,7 +148,7 @@ else
             <!-- Calendar Section -->
             <MudText Typo="Typo.h6" Class="ml-4 mb-2">Бронирование</MudText>
             <MudStack Class="ml-4" Style="width: fit-content;" Row="true">
-                <MudDatePicker IsDateDisabledFunc="@((DateTime dt)=>(dt < DateTime.Today || dt > DateTime.Today.AddDays(7)) || dt.DayOfWeek == DayOfWeek.Saturday || dt.DayOfWeek == DayOfWeek.Sunday)" Style="width: 80%;" PickerVariant="PickerVariant.Inline" Orientation="Orientation.Landscape" @bind-Date="_selectedDate" />
+                <MudDatePicker IsDateDisabledFunc="@((DateTime dt)=>(dt < DateTime.Today || dt > DateTime.Today.AddDays(7)) || dt.DayOfWeek == DayOfWeek.Saturday || dt.DayOfWeek == DayOfWeek.Sunday)" Style="width: fit-content;" PickerVariant="PickerVariant.Inline" Orientation="Orientation.Landscape" @bind-Date="_selectedDate" />
                 <MudButton Style="ml-6 mr-8" @onclick="OpenBookDialogAsync" Variant="Variant.Filled" Color="Color.Primary">
                     Забронировать
                 </MudButton>
@@ -372,7 +379,12 @@ else
         });
 
         Snackbar.Add(msg.Item1, msg.Item2);
-        await _form.ResetAsync();
+        
+        if (msg.Item2 == Severity.Success)
+        {
+            await _form.ResetAsync();
+        }
+
         await reviewsForBarber.Refresh();
     }
 
@@ -387,5 +399,25 @@ else
         public int Score { get; set; }
         public int OrderId { get; set; }
         public string Text { get; set; } = default!;
+    }
+
+    private async Task OpenGallery(int index)
+    {
+        var parameters = new DialogParameters<ImageGalleryDialog>
+        {
+            { x => x.StartIndex, index },
+            { x => x.Images, barber!.Images.Select(i => i.ImgFile).ToList() }
+        };
+
+        var options = new DialogOptions
+            {
+                MaxWidth = MaxWidth.Large,
+                FullWidth = true,
+                CloseButton = false,
+                NoHeader = true,
+                BackgroundClass = "noshadow"
+            };
+
+        await DialogService.ShowAsync<ImageGalleryDialog>("", parameters, options);
     }
 }

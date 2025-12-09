@@ -9,7 +9,33 @@
             <MudText Class="mt-4 ml-4" Typo="Typo.h4">История заказов</MudText>
             <MudDivider Class="mb-2" />
 
-            @foreach (var o in OrderList)
+            <MudStack Row="true" Spacing="2" Class="mx-4">
+                <!-- Status Filter -->
+                <MudSelect T="OrderStatus?" Label="Статус заказа" @bind-Value="_selectedStatus" Clearable="true">
+                    <!-- "All" option -->
+                    <MudSelectItem T="OrderStatus?" Value="@(null)">Все</MudSelectItem>
+
+                    <!-- Specific statuses -->
+                    @foreach (OrderStatus status in Enum.GetValues(typeof(OrderStatus)))
+                    {
+                        <MudSelectItem T="OrderStatus?" Value="@(status)">
+                            @GetStatusRus(status)
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+
+                <!-- Sort selection -->
+                <MudSelect T="OrderSort" Label="Сортировать по" @bind-Value="_selectedSort">
+                    <MudSelectItem Value="OrderSort.AppointedAsc">Назначенное время ↑</MudSelectItem>
+                    <MudSelectItem Value="OrderSort.AppointedDesc">Назначенное время ↓</MudSelectItem>
+                    <MudSelectItem Value="OrderSort.CreatedAsc">Дата создания ↑</MudSelectItem>
+                    <MudSelectItem Value="OrderSort.CreatedDesc">Дата создания ↓</MudSelectItem>
+                </MudSelect>
+            </MudStack>
+
+            <MudDivider Class="my-2" />
+
+            @foreach (var o in FilteredOrders)
             {
                 <a href=@($"/payment/{o.Id}")>
                     <MudCard style="border: 1px solid black;" Elevation="2" Class="mx-4 mb-4">
@@ -86,9 +112,19 @@ else
 }
 
 @code {
+    public enum OrderSort
+    {
+        AppointedAsc,
+        AppointedDesc,
+        CreatedAsc,
+        CreatedDesc
+    }
+
     [Parameter] public int id { get; set; }
 
     private List<Order> OrderList { get; set; } = new();
+    private OrderStatus? _selectedStatus = null;
+    private OrderSort _selectedSort = OrderSort.AppointedAsc;
 
     protected override async Task OnInitializedAsync()
     {
@@ -121,4 +157,24 @@ else
         OrderStatus.Declined   => "Отклонён",
         _ => "Неизвестно"
     };
+
+    // Computed list
+    private IEnumerable<Order> FilteredOrders =>
+        SortOrders(
+            OrderList
+                .Where(o => _selectedStatus == null || o.Status == _selectedStatus)
+                .ToList()
+        );
+
+    private IEnumerable<Order> SortOrders(IEnumerable<Order> list)
+    {
+        return _selectedSort switch
+        {
+            OrderSort.AppointedAsc => list.OrderBy(o => o.AppointedTime),
+            OrderSort.AppointedDesc => list.OrderByDescending(o => o.AppointedTime),
+            OrderSort.CreatedAsc => list.OrderBy(o => o.OrderTime),
+            OrderSort.CreatedDesc => list.OrderByDescending(o => o.OrderTime),
+            _ => list
+        };
+    }
 }

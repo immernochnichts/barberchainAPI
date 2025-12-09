@@ -42,7 +42,7 @@
 
     private async Task OnServiceClicked(Job j)
     {
-        if (cart.JobSet.Contains(j))
+        if (cart!.JobSet.Contains(j))
         {
             await CartService.RemoveItem(j.Id);
         }

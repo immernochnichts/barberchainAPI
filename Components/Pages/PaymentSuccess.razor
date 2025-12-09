@@ -21,6 +21,8 @@
             <MudText Typo="Typo.subtitle1" Class="mb-4">Ваш заказ <b>#@order.Id</b> был успешно обработан.</MudText>
 
             <MudStack Spacing="1" AlignItems="AlignItems.Start" Class="mb-4">
+                <MudText>Адрес: @order.Barber.Bshop.Address</MudText>
+                <MudText>Сотрудник: <a style="text-decoration: none; color: cadetblue;" href=@($"account/{order.Barber.AccountId}")>@order.Barber.Account.Lastname @order.Barber.Account.Restname</a></MudText>
                 <MudText>
                     Стоимость заказа: <b>@(
                         order.Barber.BarberJobs

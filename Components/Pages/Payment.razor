@@ -156,6 +156,10 @@ else
             .Include(o => o.Barber)
                 .ThenInclude(b => b.BarberJobs)
                     .ThenInclude(bj => bj.Job)
+            .Include(o => o.Barber)
+                .ThenInclude(b => b.Account)
+            .Include(o => o.Barber)
+                .ThenInclude(b => b.Bshop)
             .Where(o => o.Id == orderid)
             .FirstOrDefaultAsync();
 
@@ -174,7 +178,7 @@ else
 
             acc = order?.Account;
 
-            if (order!.Status == OrderStatus.Waiting)
+            if (order!.Status == OrderStatus.Waiting || order.Status == OrderStatus.Complete)
             {
                 success = true;
                 StateHasChanged();

@@ -1,6 +1,9 @@
 ﻿@namespace barberchainAPI.Components.Pages
 @rendermode InteractiveServer
 @page "/"
+@using barberchainAPI.Functional.Services;
+@inject IMapService MapService
+@inject BarberchainDbContext Context
 
 <MudPopoverProvider />
 
@@ -17,9 +20,21 @@
             ?
         </MudText>
 
-        <MudPaper Elevation="1" Class="d-flex justify-center align-center" Style="height:400px; background-color:#f5f5f5; border:1px solid #ccc;">
-            <MudText Typo="Typo.subtitle1" Align="Align.Center">Map will appear here</MudText>
-        </MudPaper>
+        <div id="map" style="height: 400px; width: auto; border: 1px solid black;"></div>
     </MudStack>
 </MudPaper>
 
+@code
+{
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await MapService.InitMapAsync("map", 45.140134, 37.460469, 9);
+
+        var barbershops = await Context.Barbershops.ToListAsync();
+
+        foreach (var bs in barbershops)
+        {
+            await MapService.AddMarkerAsync(bs.Id.ToString(), bs.Latitude, bs.Longitude, $"/barbershop/{bs.Id}");
+        }
+    }
+}

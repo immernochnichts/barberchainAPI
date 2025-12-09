@@ -2,11 +2,13 @@
 @page "/barbershop/{Id:int}"
 @rendermode InteractiveServer
 @using barberchainAPI.Functional
+@using barberchainAPI.Functional.Services
 @using System.Collections.Generic;
 @inject NavigationManager Navigation
 @inject BarberchainDbContext Context
 @inject CartService CartService
 @inject IDialogService DialogService
+@inject IMapService MapService
 
 <MudDialogProvider></MudDialogProvider>
 
@@ -30,13 +32,13 @@ else
             <MudGrid>
                 <MudItem xs="12" sm="6">
                     <!-- Map placeholder -->
-                    <MudPaper Class="pa-2" Style="height:200px; display:flex; align-items:center; justify-content:center; background:#eee;">
-                        Map placeholder
-                    </MudPaper>
+                    <div id="map" style="height: 200px; background: black; border: 1px solid black;">
+
+                    </div>
                 </MudItem>
                 <MudItem xs="12" sm="6">
                     <MudText Typo="Typo.h4">@Barbershop.Address</MudText>
-                    <MudText Typo="Typo.subtitle1">📞 @Barbershop.Phone</MudText>
+                    <MudText Typo="Typo.subtitle1">🤙 @Barbershop.Phone</MudText>
                     <MudText Typo="Typo.subtitle2">
                         🕒 @(oh < 10 ? "0" + oh : oh):@(om < 10 ? "0" + om : om) - @(ch < 10 ? "0" + ch : ch):@(cm < 10 ? "0" + cm : cm)
                     </MudText>
@@ -71,7 +73,7 @@ else
                             <MudCard Style="border: 1px solid black;">
                                 <MudCardContent>
                                     <MudText Typo="Typo.subtitle1">@barber.Account.Lastname @barber.Account.Restname</MudText>
-                                    <a href=@($"/account/{barber.AccountId}")>
+                                    <a href=@($"/account/{barber.AccountId}?component=Profile")>
                                         <MudImage Src="@AccountPage.GetImageSrc(barber.Account.ProfilePic)" Alt="Barber profile pic" ObjectFit="ObjectFit.Cover" Style="width:100%;height:auto;" />
                                     </a>
                                 </MudCardContent>
@@ -109,12 +111,9 @@ else
 
     private int oh, om, ch, cm;
 
-    protected override async Task OnInitializedAsync()
+    private async Task InitBshop()
     {
-
-        try
-        { 
-            Barbershop = await Context.Barbershops
+        Barbershop = await Context.Barbershops
              .Include(bs => bs.Barbers)
                  .ThenInclude(b => b.Account)
              .Include(bs => bs.Barbers)
@@ -123,6 +122,16 @@ else
              .Include(bs => bs.Images)
              .Where(bs => bs.Id == Id)
              .FirstOrDefaultAsync();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (Barbershop == null)
+            {
+                await InitBshop();
+            }
 
             if (Barbershop is null)
             {
@@ -200,6 +209,12 @@ else
         {
             cart = await CartService.GetCart();
             StateHasChanged();
+
+            if (Barbershop != null)
+            {
+                await MapService.InitMapAsync("map", Barbershop.Latitude, Barbershop.Longitude, 16);
+                await MapService.AddMarkerAsync(Barbershop.Id.ToString(), Barbershop.Latitude, Barbershop.Longitude);
+            }
         }
     }
 
