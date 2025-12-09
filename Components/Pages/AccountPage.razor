@@ -26,19 +26,19 @@ else
             <MudFlexBreak></MudFlexBreak>
 
             <MudButtonGroup Color="Color.Primary" Variant="Variant.Filled">
-                <MudButton @onclick="() => CurrentComponent = AccountComponent.Profile">Профиль</MudButton>
-                <MudButton @onclick="() => CurrentComponent = AccountComponent.Reviews">Мои отзывы</MudButton>
-                <MudButton @onclick="() => CurrentComponent = AccountComponent.Notifications">Уведомления</MudButton>
-                <MudButton @onclick="() => CurrentComponent = AccountComponent.OrderHistory">История заказов</MudButton>
-                <MudButton @onclick="() => CurrentComponent = AccountComponent.Cart">Корзина</MudButton>
+                <MudButton @onclick="() => Goto(AccountComponent.Profile)">Профиль</MudButton>
+                <MudButton @onclick="() => Goto(AccountComponent.Reviews)">Мои отзывы</MudButton>
+                <MudButton @onclick="() => Goto(AccountComponent.Notifications)">Уведомления</MudButton>
+                <MudButton @onclick="() => Goto(AccountComponent.OrderHistory)">История заказов</MudButton>
+                <MudButton @onclick="() => Goto(AccountComponent.Cart)">Корзина</MudButton>
             </MudButtonGroup>
 
             if (account.Role == AccountRole.Barber)
             {
                 <MudButtonGroup Style="background: #276FBF;" Variant="Variant.Filled">
                     <MudButton Style="color:white;" Disabled="barber!.BshopId == null" @onclick="OpenAdjustmentDialog">Изменить расписание</MudButton>
-                    <MudButton Style="color:white;" @onclick="() => CurrentComponent = AccountComponent.OrdersToDeliver">Заказы мне</MudButton>
-                    <MudButton Style="color:white;" @onclick="() => CurrentComponent = AccountComponent.PhoneOrderPlacement">Оформить телефонный заказ</MudButton>
+                    <MudButton Style="color:white;" @onclick="() => Goto(AccountComponent.OrdersToDeliver)">Заказы мне</MudButton>
+                    <MudButton Style="color:white;" @onclick="() => Goto(AccountComponent.PhoneOrderPlacement)">Оформить телефонный заказ</MudButton>
                     <MudButton Style="color:white;" Disabled="barber.BshopId == null" @onclick="OpenComplaintCreationDialog">Пожаловаться</MudButton>
                 </MudButtonGroup>
             }
@@ -46,9 +46,9 @@ else
             if (account.Role == AccountRole.Manager || account.Role == AccountRole.Admin)
             {
                 <MudButtonGroup Style="background: #DF1674;" Variant="Variant.Filled">
-                    <MudButton Style="color:white;" @onclick="() => CurrentComponent = AccountComponent.UserList">Список пользователей</MudButton>
-                    <MudButton Style="color:white;" @onclick="() => CurrentComponent = AccountComponent.ScheduleRequests">Заявки на изменение расписания</MudButton>
-                    <MudButton Style="color:white;" @onclick="() => CurrentComponent = AccountComponent.ReportedReviews">Отзывы с жалобами</MudButton>
+                    <MudButton Style="color:white;" @onclick="() => Goto(AccountComponent.UserList)">Список пользователей</MudButton>
+                    <MudButton Style="color:white;" @onclick="() => Goto(AccountComponent.ScheduleRequests)">Заявки на изменение расписания</MudButton>
+                    <MudButton Style="color:white;" @onclick="() => Goto(AccountComponent.ReportedReviews)">Отзывы с жалобами</MudButton>
                 </MudButtonGroup>
             }
 
@@ -57,7 +57,7 @@ else
                 <MudFlexBreak></MudFlexBreak>
 
                 <MudButtonGroup Style="background: #54B6B2;" Variant="Variant.Filled">
-                    <MudButton Style="color:white;" @onclick="() => CurrentComponent = AccountComponent.Complaints">Жалобы</MudButton>
+                    <MudButton Style="color:white;" @onclick="() => Goto(AccountComponent.Complaints)">Жалобы</MudButton>
                 </MudButtonGroup>
             }
         }
@@ -276,7 +276,7 @@ else
 
         await DialogService.ShowAsync<CreateScheduleDialog>("Request Schedule Adjustment", parameters, options);
     }
-    
+
     private async Task OpenComplaintCreationDialog()
     {
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.ExtraLarge, FullWidth = true };
@@ -286,5 +286,11 @@ else
         };
 
         await DialogService.ShowAsync<SendComplaintDialog>("Complaint creation", parameters, options);
+    }
+
+    private void Goto(AccountComponent component)
+    {
+        Navigation.NavigateTo($"account/{id}?component={component.ToString()}");
+        Navigation.Refresh();
     }
 }

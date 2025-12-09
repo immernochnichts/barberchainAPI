@@ -11,7 +11,7 @@
 
 @if (ReviewList?.Count > 0)
 {
-    <MudPaper Elevation="3" Class="p-6 rounded-lg">
+    <MudPaper Class="p-6 pa-4">
         <MudStack Spacing="3">
             <MudText Typo="Typo.h4">Отзывы, на которые есть жалобы</MudText>
             <MudDivider Class="mb-2" />
@@ -52,7 +52,7 @@
 }
 else
 {
-    <MudPaper Elevation="3" Class="p-4 rounded-lg" Style="text-align:center;">
+    <MudPaper Class="p-4 pa-4" Style="text-align:center;">
         <MudIcon Icon="@Icons.Material.Filled.Reviews" Color="Color.Secondary" Size="Size.Large" />
         <MudText Typo="Typo.h6" Class="mt-2">Нет отзывов</MudText>
         <MudText Typo="Typo.body2">Список отзывов с жалобами пуст</MudText>

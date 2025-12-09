@@ -25,7 +25,7 @@
                 <MudAvatar>
                     <MudImage Src=@group.TargetAvatar></MudImage>
                 </MudAvatar>
-                <MudExpansionPanel Text="@($"{group.TargetName} — {group.Complaints.Count} жалоб")">
+                <MudExpansionPanel Style="border: 1px solid black;" Text="@($"{group.TargetName} — {group.Complaints.Count} жалоб")">
 
                     <MudList T="Complaint" Dense="false">
 

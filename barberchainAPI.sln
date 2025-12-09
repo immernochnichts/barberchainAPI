@@ -5,7 +5,7 @@ VisualStudioVersion = 17.11.35327.3
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "barberchainAPI", "barberchainAPI.csproj", "{4F2EED62-2025-4202-93E6-BAEFD585E011}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "barberchainTest", "..\barberchainTest\barberchainTest.csproj", "{0F6CBB5A-01D6-421B-88BF-FC1C67CAA6E0}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "barberchainTest", "..\barberchainTest\barberchainTest.csproj", "{0F6CBB5A-01D6-421B-88BF-FC1C67CAA6E0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

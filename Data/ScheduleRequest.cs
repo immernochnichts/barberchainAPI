@@ -48,5 +48,8 @@ namespace barberchainAPI.Data
 
         [Column("reason_rejected")]
         public string? ReasonRejected { get; set; }
+
+        [Column("changes")]
+        public string? Changes { get; set; }
     }
 }

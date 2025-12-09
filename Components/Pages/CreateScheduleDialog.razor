@@ -89,7 +89,7 @@
                     {
                         int index = i;
                         <div class="time-block @(AtuPattern[index] ? "available" : "unavailable")"
-                             style=@(occupiedIndexes.Contains(index) ? "background-color: crimson;" : "")
+                             style=@(occupiedIndexes.Contains(index) ? "background-color: #851E2F; border: 1px solid white;" : "")
                              @onmousedown="e => StartDrag(e, index)"
                              @onmouseenter="() => ContinueDrag(index)">
                         </div>

@@ -4,7 +4,7 @@
 
 @if (OrderList?.Count > 0)
 {
-    <MudPaper Class="p-6 rounded-lg">
+    <MudPaper Class="p-6">
         <MudStack Spacing="3">
             <MudText Class="mt-4 ml-4" Typo="Typo.h4">История заказов</MudText>
             <MudDivider Class="mb-2" />
@@ -78,7 +78,7 @@
 }
 else
 {
-    <MudPaper Elevation="3" Class="p-4 rounded-lg" Style="text-align:center;">
+    <MudPaper Class="py-4 p-4 rounded" Style="text-align:center;">
         <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Color="Color.Secondary" Size="Size.Large" />
         <MudText Typo="Typo.h6" Class="mt-2">У вас нет заказов</MudText>
         <MudText Typo="Typo.body2">История заказов будет отображаться здесь</MudText>

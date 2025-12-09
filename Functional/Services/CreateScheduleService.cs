@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using System.Collections;
 using System.Security.Claims;
+using System.Text;
 
 namespace barberchainAPI.Functional.Services
 {
@@ -155,8 +156,13 @@ namespace barberchainAPI.Functional.Services
                 alreadyExistingRequest.Message = dto.Message;
                 alreadyExistingRequest.Status = ScheduleRequestStatus.Pending;
                 alreadyExistingRequest.OrderIdsToDecline = string.Join(" ", dto.OrdersToDecline.Select(o => o.Id.ToString()));
+                alreadyExistingRequest.Changes = GetScheduleChanges(alreadyExistingRequest.Id);
                 await _context.SaveChangesAsync();
-                return null!;
+                return new CreateReplaceSchedReqResult()
+                {
+                    Request = alreadyExistingRequest,
+                    Error = null!
+                };
             }
             else
             {
@@ -169,12 +175,16 @@ namespace barberchainAPI.Functional.Services
                         AtuPattern = dto.AtuPattern,
                         Message = dto.Message,
                         Status = ScheduleRequestStatus.Pending,
-                        OrderIdsToDecline = string.Join(" ", dto.OrdersToDecline.Select(o => o.Id.ToString()))
+                        OrderIdsToDecline = string.Join(" ", dto.OrdersToDecline.Select(o => o.Id.ToString())),
                     },
                     Error = null!
                 };
 
                 _context.ScheduleRequests.Add(result.Request);
+                await _context.SaveChangesAsync();
+
+                result.Request.Changes = GetScheduleChanges(result.Request.Id);
+
                 await _context.SaveChangesAsync();
                 return result;
             }
@@ -206,6 +216,65 @@ namespace barberchainAPI.Functional.Services
                         dto.OccupiedIndexes.Add(idx);
                 }
             }
+        }
+
+        public string GetScheduleChanges(int requestId)
+        {
+            var req = _context.ScheduleRequests.Where(r => r.Id == requestId).FirstOrDefault();
+            var sched = _context.BarberScheduleDays.Where(d => d.Date == req!.RequestDate && d.BarberId == req.BarberId).FirstOrDefault();
+
+            return GetAtuDiff(sched == null ? req!.Barber.Bshop.DefaultSchedule : sched.AtuPattern, req!.AtuPattern);
+        }
+
+        public static string GetAtuDiff(BitArray before, BitArray after)
+        {
+            var availableRanges = new List<string>();
+            var unavailableRanges = new List<string>();
+
+            for (int i = 0; i < 96; i++)
+            {
+                bool b = before[i];
+                bool a = after[i];
+
+                if (b == a)
+                    continue;
+
+                bool available = !b && a;
+                bool unavailable = b && !a;
+
+                int start = i;
+
+                while (i + 1 < 96 && before[i + 1] != after[i + 1])
+                    i++;
+
+                int end = i;
+
+                string from = AtuIndexToTime(start);
+                string to = AtuIndexToTime(end + 1);
+
+                string range = $"{from}–{to}";
+
+                if (available)
+                    availableRanges.Add(range);
+                else
+                    unavailableRanges.Add(range);
+            }
+
+            var sb = new StringBuilder();
+
+            if (availableRanges.Count > 0)
+                sb.AppendLine($"{string.Join(", ", availableRanges)} стало доступно");
+
+            if (unavailableRanges.Count > 0)
+                sb.AppendLine($"{string.Join(", ", unavailableRanges)} стало недоступно");
+
+            return sb.ToString().TrimEnd();
+        }
+
+        private static string AtuIndexToTime(int index)
+        {
+            int minutes = index * 15;
+            return TimeSpan.FromMinutes(minutes).ToString(@"hh\:mm");
         }
     }
 }

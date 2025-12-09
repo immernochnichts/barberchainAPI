@@ -12,7 +12,7 @@
     @if (!regPressed)
     {
         <MudItem Class="mx-auto" xs="12" sm="7">
-            <MudPaper Class="pa-4">
+            <MudPaper Class="pa-4 mt-8">
                 <MudForm @ref="form" @bind-IsValid="success" @bind-Errors="errors">
                     <MudTextField T="string" Label="Email" @bind-Value="loginEmail"
                                     Required="true" RequiredError="Адрес эл. почты обязателен"

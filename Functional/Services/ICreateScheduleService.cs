@@ -7,7 +7,7 @@ namespace barberchainAPI.Functional.Services
     {
         Task<BarberScheduleLoadResult> LoadBarberScheduleAsync(int barberId, DateOnly date);
         Task<CreateReplaceSchedReqResult> CreateOrReplaceScheduleRequest(CreateReplaceSchedDto dto);
-        //bool BitArraysEqual(BitArray a, BitArray b);
+        string GetScheduleChanges(int requestId);
         Task NotifyManagerAsync(Barber barber, DateTime selectedDate);
         Task CancelChangesAsync(CancelChangesDto dto);
     }

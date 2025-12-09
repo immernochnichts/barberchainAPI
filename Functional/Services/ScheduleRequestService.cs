@@ -9,10 +9,14 @@ namespace barberchainAPI.Functional.Services
     public class ScheduleRequestService : IScheduleRequestService
     {
         private readonly BarberchainDbContext _context;
+        private readonly IOrderService _orderService;
+        private readonly INotificationService _notificationService;
 
-        public ScheduleRequestService(BarberchainDbContext context)
+        public ScheduleRequestService(BarberchainDbContext context, IOrderService orderService, INotificationService notificationService)
         {
             _context = context;
+            _orderService = orderService;
+            _notificationService = notificationService;
         }
 
         public async Task<List<ScheduleRequest>> LoadRequestsAsync(int managerId)
@@ -65,7 +69,11 @@ namespace barberchainAPI.Functional.Services
 
             foreach (var o in req!.OrderIdsToDecline!.Split(" ", StringSplitOptions.RemoveEmptyEntries))
             {
-                var order = await _context.Orders.Where(ord => ord.Id == int.Parse(o)).FirstOrDefaultAsync();
+                var order = await _context.Orders
+                    .Where(ord => ord.Id == int.Parse(o))
+                    .Include(o => o.OrderJobs)
+                        .ThenInclude(oj => oj.Job)
+                    .FirstOrDefaultAsync();
 
                 if (order!.AccountId != null)
                 {
@@ -102,20 +110,9 @@ namespace barberchainAPI.Functional.Services
 
                 order.Status = OrderStatus.Declined;
 
-                //clear declined orders from schedule
-                int startIndex =
-                   order.AppointedTime.Hour * 4 +
-                   order.AppointedTime.Minute / 15;
+                var bsd = await _context.BarberScheduleDays.Where(d => d.Date == req.RequestDate && req.BarberId == d.BarberId).FirstAsync();
 
-                int totalDuration = order.OrderJobs.Sum(j => (int)j.Job.DurationAtu);
-
-                for (int i = startIndex; i < totalDuration; i++)
-                {
-                    if (i >= 0 && i < 96)
-                    {
-                        req.AtuPattern[i] = true;
-                    }
-                }
+                await _orderService.EraseOrderFromScheduleAsync(bsd, order);
             }
         }
 
@@ -155,76 +152,7 @@ namespace barberchainAPI.Functional.Services
                 };
             }
 
-            _context.Notifications.Add(not);
-            await _context.SaveChangesAsync();
-
-            var acc_not = new AccountNotification
-            {
-                AccountId = req.Barber.AccountId!.Value,
-                NotificationId = not.Id
-            };
-
-            _context.AccountNotifications.Add(acc_not);
-            await _context.SaveChangesAsync();
-        }
-
-        public string GetScheduleChangesAsync(int requestId)
-        {
-            var req = _context.ScheduleRequests.Where(r => r.Id == requestId).FirstOrDefault();
-            var sched = _context.BarberScheduleDays.Where(d => d.Date == req!.RequestDate && d.BarberId == req.BarberId).FirstOrDefault();
-
-            return GetAtuDiff(sched == null ? req!.Barber.Bshop.DefaultSchedule : sched.AtuPattern, req!.AtuPattern);
-        }
-
-        public static string GetAtuDiff(BitArray before, BitArray after)
-        {
-            var availableRanges = new List<string>();
-            var unavailableRanges = new List<string>();
-
-            for (int i = 0; i < 96; i++)
-            {
-                bool b = before[i];
-                bool a = after[i];
-
-                if (b == a)
-                    continue;
-
-                bool available = !b && a;
-                bool unavailable = b && !a;
-
-                int start = i;
-
-                while (i + 1 < 96 && before[i + 1] != after[i + 1])
-                    i++;
-
-                int end = i;
-
-                string from = AtuIndexToTime(start);
-                string to = AtuIndexToTime(end + 1);
-
-                string range = $"{from}–{to}";
-
-                if (available)
-                    availableRanges.Add(range);
-                else
-                    unavailableRanges.Add(range);
-            }
-
-            var sb = new StringBuilder();
-
-            if (availableRanges.Count > 0)
-                sb.AppendLine($"{string.Join(", ", availableRanges)} стало доступно");
-
-            if (unavailableRanges.Count > 0)
-                sb.AppendLine($"{string.Join(", ", unavailableRanges)} стало недоступно");
-
-            return sb.ToString().TrimEnd();
-        }
-
-        private static string AtuIndexToTime(int index)
-        {
-            int minutes = index * 15;
-            return TimeSpan.FromMinutes(minutes).ToString(@"hh\:mm");
+            await _notificationService.NotifyAsync(req.Barber.AccountId!.Value, not);
         }
     }
 }

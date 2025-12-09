@@ -1,0 +1,17 @@
+﻿* {
+    border-radius: 0 !important;
+    font-family: 'Inter' !important;
+}
+
+html, body {
+    height: 100% !important;
+    margin: 0 !important;
+}
+
+.mud-layout {
+    height: 100% !important;
+}
+
+.mud-main-content {
+    height: 100% !important;
+}

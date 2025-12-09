@@ -3,28 +3,28 @@
 @inject BarberchainDbContext Context
 @inject CartService CartService
 
-<MudPaper Elevation="1" Class="p-4 rounded-lg">
+<MudPaper Class="p-4 pa-4">
     @if (cart != null && cart.JobSet.Count > 0)
     {
-    <MudContainer Style="padding-top:1rem;">
-        <MudText>Нажмите на услугу, чтобы убрать её из корзины</MudText>
-        <MudList T="string">
-            @foreach (var job in cart.JobSet)
-            {
-                <MudContainer Class="d-flex" Style="align-items:center">
-                    <MudListItem Text=@job.Name />
-                    <MudButton @onclick="async () => { await OnServiceClicked(job); }" Disabled="false" Style=@($"background:{(cart.JobSet.Contains(job) ? "gray" : job.ColorCSS)}; height:min-content;")>@(cart.JobSet.Contains(job) ? "Добавлено" : "")</MudButton>
-                </MudContainer>
-            }
-        </MudList>
-    </MudContainer>
+        <MudContainer>
+            <MudText>Нажмите на услугу, чтобы убрать её из корзины</MudText>
+            <MudList T="string">
+                @foreach (var job in cart.JobSet)
+                {
+                    <MudContainer Class="d-flex" Style="align-items:center">
+                        <MudListItem Text=@job.Name />
+                        <MudButton @onclick="async () => { await OnServiceClicked(job); }" Disabled="false" Style=@($"background:{(cart.JobSet.Contains(job) ? "gray" : job.ColorCSS)}; height:min-content;")>@(cart.JobSet.Contains(job) ? "Добавлено" : "")</MudButton>
+                    </MudContainer>
+                }
+            </MudList>
+        </MudContainer>
     }
     else
     {
-        <MudPaper Elevation="3" Class="p-4 rounded-lg" style="text-align:center;">
-            <MudIcon Class="mt-4" Icon="@Icons.Material.Filled.ShoppingCart" Color="Color.Secondary" Size="Size.Large" />
-            <MudText Typo="Typo.h6" Class="mb-4 mt-2">Корзина пуста</MudText>
-        </MudPaper>
+        <MudStack Class="p-4 pa-4" Style="align-items: center;">
+            <MudIcon Icon="@Icons.Material.Filled.ShoppingCart" Color="Color.Secondary" Size="Size.Large" />
+            <MudText Typo="Typo.h6" Class="mt-2">Корзина пуста</MudText>
+        </MudStack>
     }
 </MudPaper>
 

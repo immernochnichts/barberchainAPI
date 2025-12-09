@@ -1,8 +1,25 @@
 ﻿@namespace barberchainAPI.Components.Pages
+@rendermode InteractiveServer
 @page "/"
+
+<MudPopoverProvider />
 
 <PageTitle>Home</PageTitle>
 
-<h1>Hello, world!</h1>
+<MudPaper Class="pa-4 mt-8 mx-auto" Style="max-width: 1000px; border: 1px solid black;">
+    <MudStack Spacing="4">
+        <MudText Typo="Typo.h3" Align="Align.Center" Class="mb-2">THE BARBERCHAIN</MudText>
+        <MudText Typo="Typo.h4" Align="Align.Center" Style="font-style: oblique;">
+            знаете ли вы, что значит
+            <MudTooltip Text="стилёк" Style="font-size: 24px; font-style: italic; background: black;" Placement="Placement.Top">
+                <MudText Typo="Typo.h3" Inline="true" Style="font-style:normal; display:inline-block; cursor:pointer;">🤌</MudText>
+            </MudTooltip>
+            ?
+        </MudText>
 
-Welcome to your new app.
+        <MudPaper Elevation="1" Class="d-flex justify-center align-center" Style="height:400px; background-color:#f5f5f5; border:1px solid #ccc;">
+            <MudText Typo="Typo.subtitle1" Align="Align.Center">Map will appear here</MudText>
+        </MudPaper>
+    </MudStack>
+</MudPaper>
+

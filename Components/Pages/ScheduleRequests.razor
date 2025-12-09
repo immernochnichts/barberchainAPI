@@ -75,7 +75,7 @@
     }
     else
     {
-        <MudTable Items="requests" Hover="true" Bordered="true" Striped="true">
+        <MudTable Style="border: 1px solid black;" Items="requests" Hover="true" Bordered="true" Striped="true">
             <HeaderContent>
                 <MudTh>Barber</MudTh>
                 <MudTh>Date</MudTh>
@@ -90,7 +90,7 @@
                 <MudTd>@r.RequestDate.ToString("yyyy-MM-dd")</MudTd>
                 <MudTd>@r.Message</MudTd>
                 <MudTd>
-                    @ScReqService.GetScheduleChangesAsync(r.Id)
+                    @r.Changes
                 </MudTd>
                 <MudTd>@r.Status</MudTd>
                 <MudTd>

@@ -9,7 +9,15 @@
 
 <MudLayout>
     <NavMenu NotificationCount="@notificationCount"></NavMenu>
-    <MudMainContent>
+    <MudMainContent Style=
+"background-color: white;
+background-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0.1) 2px,
+    rgba(255, 255, 255, 1) 2px
+);
+background-size: 20px 100%;
+">
         @Body
     </MudMainContent>
 </MudLayout>
