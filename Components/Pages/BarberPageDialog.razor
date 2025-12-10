@@ -232,7 +232,9 @@
     public DateTime? SelectedDate { get; set; }
 
     [Parameter]
-    public Barber? Barber { get; set; }
+    public int BarberId { get; set; }
+
+    private Barber? Barber { get; set; }
 
     [Parameter]
     public ClaimsPrincipal? user { get; set; }
@@ -251,6 +253,21 @@
     private void Cancel() => MudDialog.Cancel();
 
     private string? errorMsg = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Barber = await Context.Barbers
+                .Include(b => b.BarberJobs)
+                    .ThenInclude(bj => bj.Job)
+                .Include(b => b.Account)
+                .Include(b => b.Images)
+                .Include(b => b.Bshop)
+                    .ThenInclude(b => b.Manager)
+                .Include(b => b.Bshop)
+                    .ThenInclude(bs => bs.Barbers)
+                        .ThenInclude(b => b.Account)
+                .FirstOrDefaultAsync(b => b.AccountId == BarberId);
+    }
 
     private async Task Submit()
     {

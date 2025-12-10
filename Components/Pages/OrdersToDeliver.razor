@@ -157,6 +157,8 @@
                 .Include(o => o.Account)
                 .Include(o => o.Barber)
                     .ThenInclude(b => b.Bshop)
+                .Include(o => o.Barber)
+                    .ThenInclude(b => b.Account)
                 .Include(o => o.OrderJobs)
                 .Where(o => o.Barber.Bshop.Id == bshopid)
                 .AsQueryable();

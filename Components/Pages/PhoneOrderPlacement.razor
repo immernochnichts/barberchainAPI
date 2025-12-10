@@ -10,14 +10,14 @@
     <MudContainer Style="margin-bottom: 12px; border-radius: 0.5rem; border: 1px solid black; width: 80%;">
         <MudStack Class="mt-4 mb-4" Row="true" AlignItems="AlignItems.Center">
             <MudText>Адрес: </MudText>
-            <MudText style="width: fit-content;">@Barber?.Bshop.Address</MudText>
+            <MudText style="width: fit-content;">@barber?.Bshop.Address</MudText>
         </MudStack>
         <MudStack Class="mb-4 mt-4" Row="true" AlignItems="AlignItems.Center">
             <MudText>Сотрудник: </MudText>
             <MudSelect Style="max-width: fit-content;" T="Barber" @bind-Value="@_selectedBarber" Text="@(_selectedBarber?.Account.Lastname + " " + _selectedBarber?.Account.Restname)">
-                @if (Barber != null)
+                @if (barber != null)
                 {
-                    foreach (var b in Barber.Bshop.Barbers)
+                    foreach (var b in barber.Bshop.Barbers)
                     {
                         <MudSelectItem T="Barber" Value="@b">@b.Account.Lastname @b.Account.Restname</MudSelectItem>
                     }
@@ -50,7 +50,9 @@
     private Order orderBeingCreated = new Order();
 
     [Parameter]
-    public Barber Barber { get; set; } = default!;
+    public int BarberId { get; set; }
+
+    private Barber barber = default!;
 
     private Barber _selectedBarber = default!;
 
@@ -59,16 +61,28 @@
 
     private DateTime? _selectedDate = DateTime.Today;
 
+    protected override async Task OnInitializedAsync()
+    {
+        barber = await Context.Barbers
+            .Include(b => b.Bshop)
+                .ThenInclude(bs => bs.Barbers)
+                    .ThenInclude(b => b.Account)
+            .Include(b => b.BarberJobs)
+                .ThenInclude(bj => bj.Job)
+            .Where(b => b.Id == BarberId)
+            .FirstAsync();
+    }
+
     private async Task OpenBookDialogAsync()
     {
         var atuPattern = await ProfileService.GetAvailabilityForDayAsync(_selectedBarber.Id, _selectedDate);
-        var jobSet = Barber.BarberJobs.Select(x => x.Job);
+        IEnumerable<Job> jobSet = _selectedBarber.BarberJobs.Select(x => x.Job);
 
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.ExtraExtraLarge, FullWidth = true };
         var params_ = new DialogParameters<BarberPageDialog> {
             { x => x.AtuPattern, atuPattern },
             { y => y.SelectedDate, _selectedDate},
-            { z => z.Barber, _selectedBarber },
+            { z => z.BarberId, _selectedBarber.Id },
             { w => w.user, null },
             { u => u.JobSet, jobSet },
             { v => v.PhoneBooking, true },
@@ -80,7 +94,7 @@
         {
             orderBeingCreated = (dialogRes.Data as Order)!;
 
-            await NotificationService.NotifyAsync(Barber.AccountId!.Value,
+            await NotificationService.NotifyAsync(barber.AccountId!.Value,
                 $"У вас новый заказ #{orderBeingCreated.Id} на {orderBeingCreated.AppointedTime}\nУслуги: " + string.Join(", ", Context.OrderJobs.Where(oj => oj.OrderId == orderBeingCreated.Id).Select(oj => oj.Job.Name)),
                 NotificationType.General);
         }

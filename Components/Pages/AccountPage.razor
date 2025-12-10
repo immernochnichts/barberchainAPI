@@ -62,6 +62,7 @@ else
 
                 <MudButtonGroup Style="background: #54B6B2;" Variant="Variant.Filled">
                     <MudButton Style="color:white;" @onclick="() => Goto(AccountComponent.Complaints)">Жалобы</MudButton>
+                    <MudButton Style="color:white;" @onclick="() => Goto(AccountComponent.ActionLog)">Лог действий</MudButton>
                 </MudButtonGroup>
             }
         }
@@ -123,7 +124,12 @@ else
             }
             case AccountComponent.PhoneOrderPlacement:
             {
-                <PhoneOrderPlacement Barber="@barber" User="@user"></PhoneOrderPlacement>
+                <PhoneOrderPlacement BarberId="@barber!.Id" User="@user"></PhoneOrderPlacement>
+                break;
+            }
+            case AccountComponent.ActionLog:
+            {
+                <ActionLogPage></ActionLogPage>
                 break;
             }
         }
@@ -145,7 +151,8 @@ else
         OrdersToDeliver,
         Complaints,
         ReportedReviews,
-        PhoneOrderPlacement
+        PhoneOrderPlacement,
+        ActionLog
     }
 
     [Inject]

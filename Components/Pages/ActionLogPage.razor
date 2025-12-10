@@ -1,0 +1,166 @@
+﻿@using barberchainAPI.Data
+@using System.Security.Claims
+@inject BarberchainDbContext Context
+
+<MudPaper Class="pa-4">
+
+    <MudText Typo="Typo.h5" Class="mb-4">Журнал действий</MudText>
+
+
+        <!-- Search -->
+    <MudTextField @bind-Value="_search"
+                    Placeholder="Email актера / цели или детали..."
+                    Adornment="Adornment.Start"
+                    AdornmentIcon="@Icons.Material.Filled.Search"
+                    Immediate="true"
+                    OnKeyDown="OnSearchKeyDown"
+                    Style="width: 260px" />
+
+    <MudStack Row="true" Spacing="2" Class="mb-4">
+        <MudSelect T="ActionType?" @bind-Value="_typeFilter"
+                    Clearable="true" Dense="true"
+                    Label="Тип действия"
+                    Style="width:200px"
+                    @bind-Value:event="onchange"
+                    ValueChanged="OnTypeChanged">
+
+            <MudSelectItem T="ActionType?" Value="null">Все</MudSelectItem>
+
+            @foreach (var t in Enum.GetValues<ActionType>())
+            {
+                <MudSelectItem T="ActionType?" Value="t">@t</MudSelectItem>
+            }
+        </MudSelect>
+
+        <!-- Date range -->
+        <MudDateRangePicker Label="Диапазон дат"
+                            @bind-DateRange="_dateRange"
+                            ValueChanged="OnDateRangeChanged"
+                            Style="width:fit-content;" />
+    </MudStack>
+    <!-- Table -->
+    <MudTable T="ActionLog"
+              @ref="_table"
+              ServerData="LoadLogs"
+              Hover="true"
+              Bordered="true"
+              Striped="true"
+              RowsPerPage="15"
+              SortLabel="Сортировка"
+              Style="border: 1px solid black;">
+
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[] {15, 30, 100}" />
+        </PagerContent>
+
+        <HeaderContent>
+            <MudTh><MudTableSortLabel SortLabel="Id" T="ActionLog" SortBy="x => x.Id">ID</MudTableSortLabel></MudTh>
+            <MudTh>Актер</MudTh>
+            <MudTh>Цель</MudTh>
+            <MudTh><MudTableSortLabel SortLabel="CreatedAt" T="ActionLog" SortBy="x => x.CreatedAt">Дата</MudTableSortLabel></MudTh>
+            <MudTh>Тип</MudTh>
+            <MudTh>Детали</MudTh>
+        </HeaderContent>
+
+        <RowTemplate Context="log">
+            <MudTd DataLabel="ID">@log.Id</MudTd>
+
+            <MudTd DataLabel="Actor">@log.ActorAccount?.Email</MudTd>
+
+            <MudTd Style="width: fit-content;" DataLabel="Target">@log.TargetAccount?.Email</MudTd>
+
+            <MudTd DataLabel="Created">@log.CreatedAt.ToString("yyyy-MM-dd HH:mm")</MudTd>
+
+            <MudTd DataLabel="Type">@log.ActionType</MudTd>
+
+            <MudTd DataLabel="Details">@log.Details</MudTd>
+        </RowTemplate>
+
+    </MudTable>
+
+</MudPaper>
+
+@code {
+    private MudTable<ActionLog>? _table;
+
+    private string _search = "";
+    private ActionType? _typeFilter;
+    private DateRange _dateRange = new DateRange(null, null);
+
+    // ===== Reload triggers =====
+    private async Task OnSearchKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+            await _table!.ReloadServerData();
+    }
+
+    private async Task OnTypeChanged(ActionType? t)
+    {
+        _typeFilter = t;
+        await _table!.ReloadServerData();
+    }
+
+    private async Task OnDateRangeChanged(DateRange r)
+    {
+        _dateRange = r;
+        await _table!.ReloadServerData();
+    }
+
+    // ===== Loading =====
+    private async Task<TableData<ActionLog>> LoadLogs(TableState state, CancellationToken token)
+    {
+        IQueryable<ActionLog> query = Context.ActionLogs
+            .Include(a => a.ActorAccount)
+            .Include(a => a.TargetAccount)
+            .AsQueryable();
+
+        // ----- Search -----
+        if (!string.IsNullOrWhiteSpace(_search))
+        {
+            query = query.Where(a =>
+                (a.ActorAccount != null && a.ActorAccount.Email.Contains(_search)) ||
+                (a.TargetAccount != null && a.TargetAccount.Email.Contains(_search)) ||
+                (a.Details != null && a.Details.Contains(_search))
+            );
+        }
+
+        // ----- ActionType -----
+        if (_typeFilter.HasValue)
+        {
+            query = query.Where(a => a.ActionType == _typeFilter.Value);
+        }
+
+        // ----- Date range -----
+        if (_dateRange.Start != null)
+            query = query.Where(a => a.CreatedAt >= _dateRange.Start.Value);
+
+        if (_dateRange.End != null)
+            query = query.Where(a => a.CreatedAt <= _dateRange.End.Value);
+
+        // ----- Sorting -----
+        if (!string.IsNullOrEmpty(state.SortLabel))
+        {
+            query = state.SortDirection switch
+            {
+                SortDirection.Ascending => query.OrderBy(x => EF.Property<object>(x, state.SortLabel)),
+                SortDirection.Descending => query.OrderByDescending(x => EF.Property<object>(x, state.SortLabel)),
+                _ => query
+            };
+        }
+        else
+            query = query.OrderByDescending(a => a.CreatedAt);
+
+        // ----- Pagination -----
+        var total = await query.CountAsync(token);
+        var items = await query
+            .Skip(state.Page * state.PageSize)
+            .Take(state.PageSize)
+            .ToListAsync(token);
+
+        return new TableData<ActionLog>
+        {
+            Items = items,
+            TotalItems = total
+        };
+    }
+}

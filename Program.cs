@@ -33,7 +33,7 @@ namespace barberchainAPI
                     o.MapEnum<ActionType>("action_type");
                     o.MapEnum<NotificationType>("notification_type");
                 }
-            ));
+            ), ServiceLifetime.Transient);
 
             builder.Services.AddMudServices();
             builder.Services.AddControllers();

@@ -6,6 +6,7 @@
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
 @inject BarberchainDbContext Context
+    
 
 <MudLayout>
     <NavMenu NotificationCount="@notificationCount"></NavMenu>
@@ -59,6 +60,27 @@ background-size: 20px 100%;
         {
             Navigation.NavigateTo($"/auth");
             Navigation.Refresh();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = state.User;
+
+        if (!user.Identity?.IsAuthenticated ?? true)
+            return;
+
+        var id = int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
+
+        var account = await Context.Accounts.FindAsync(id);
+
+        if (account?.IsBanned == true)
+        {
+            if (!Navigation.Uri.EndsWith("/banned"))
+            {
+                Navigation.NavigateTo("/banned", forceLoad: true);
+            }
         }
     }
 }

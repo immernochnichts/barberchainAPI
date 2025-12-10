@@ -93,6 +93,8 @@ else
             .Where(r => r.BarberId == barber!.Id)
             .Include(r => r.Barber)
                 .ThenInclude(b => b.Account)
+            .Include(r => r.Barber)
+                .ThenInclude(b => b.Bshop)
             .Include(r => r.Account)
             .Include(r => r.Reports)
             .OrderByDescending(r => r.CreatedAt)

@@ -301,7 +301,7 @@ else
         var params_ = new DialogParameters<BarberPageDialog> {
             { x => x.AtuPattern, AtuPattern }, 
             { y => y.SelectedDate, _selectedDate}, 
-            { z => z.Barber, barber },
+            { z => z.BarberId, barber.Id },
             { w => w.user, user },
             { u => u.JobSet, jobSet } };
 

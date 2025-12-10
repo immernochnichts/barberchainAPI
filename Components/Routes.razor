@@ -4,7 +4,7 @@
 
 <MudThemeProvider Theme="siteTheme" />
 
-<Router AppAssembly="typeof(Program).Assembly" OnNavigateAsync="HandleNavigation">
+<Router AppAssembly="typeof(Program).Assembly">
     <Found Context="routeData">
         <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)" />
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
@@ -23,35 +23,4 @@
             Info = new MudColor("#14385E")
         },
     };
-
-    [Inject] AuthenticationStateProvider Auth { get; set; }
-    [Inject] BarberchainDbContext Db { get; set; }
-    [Inject] NavigationManager Nav { get; set; }
-
-    private async Task HandleNavigation(Microsoft.AspNetCore.Components.Routing.NavigationContext args)
-    {
-        if (args.Path.Equals("banned", StringComparison.OrdinalIgnoreCase))
-            return;
-
-        var state = await Auth.GetAuthenticationStateAsync();
-        var user = state.User;
-
-        if (!user.Identity?.IsAuthenticated ?? true)
-            return; // Guest users can't be banned
-
-        var accId = user.Claims
-            .FirstOrDefault(c => c.Type == "id")?.Value;
-
-        if (accId == null)
-            return;
-
-        int id = int.Parse(accId);
-
-        var account = await Db.Accounts.FindAsync(id);
-
-        if (account.IsBanned)
-        {
-            Nav.NavigateTo("/banned", forceLoad: true);
-        }
-    }
 }
