@@ -4,8 +4,8 @@ namespace barberchainAPI.Functional.Services
 {
     public interface IScheduleRequestService
     {
-        Task ApproveRequestAsync(ScheduleRequest req);
+        Task ApproveRequestAsync(int requestId);
         Task<List<ScheduleRequest>> LoadRequestsAsync(int managerId);
-        Task NotifyBarberAsync(ScheduleRequest req);
+        Task NotifyBarberAsync(int requestId);
     }
 }

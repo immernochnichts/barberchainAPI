@@ -36,6 +36,7 @@ namespace barberchainAPI.Functional.Services
 
         ///<summary>
         ///  Order status has to be set outside of the method
+        ///  Order must include OrderJobs and then include Job
         ///</summary>
         public async Task EraseOrderFromScheduleAsync(BarberScheduleDay bsd, Order order)
         {

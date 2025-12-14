@@ -53,7 +53,7 @@ namespace barberchainAPI.Functional.Services
             var barber = (await _context.Barbers.FindAsync(barberId))!;
 
             var bsd = await _context.BarberScheduleDays
-                .Where(x => x.Date == date && x.BarberId == barber.Id)
+                .Where(x => x.Date == date && x.BarberId == barberId)
                 .FirstOrDefaultAsync();
 
             var atuPattern = bsd != null ? new BitArray(bsd.AtuPattern) : new BitArray(barber.Bshop.DefaultSchedule);
@@ -61,9 +61,10 @@ namespace barberchainAPI.Functional.Services
             var orders = await _context.Orders
                 .Where(o =>
                     DateOnly.FromDateTime(o.AppointedTime) == date &&
-                    o.BarberId == barber.Id &&
+                    o.BarberId == barberId &&
                     (o.Status == OrderStatus.Pending || o.Status == OrderStatus.Waiting || o.Status == OrderStatus.Processing))
                 .Include(o => o.OrderJobs)
+                    .ThenInclude(oj => oj.Job)
                 .ToListAsync();
 
             var occupiedIndexes = new List<int>();
@@ -136,7 +137,7 @@ namespace barberchainAPI.Functional.Services
                 .Select(d => d.AtuPattern)
                 .FirstOrDefaultAsync();
 
-            if ((bsd != null && BitArraysEqual(bsd, dto.AtuPattern)) && dto.OrdersToDecline.Count == 0 || BitArraysEqual(dto.AtuPattern, dto.Barber.Bshop.DefaultSchedule))
+            if ((bsd != null && BitArraysEqual(bsd, dto.AtuPattern)) && (dto.OrdersToDecline.Count == 0 || BitArraysEqual(dto.AtuPattern, dto.Barber.Bshop.DefaultSchedule)))
             {
                 return new CreateReplaceSchedReqResult()
                 {

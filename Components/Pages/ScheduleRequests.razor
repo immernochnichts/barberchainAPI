@@ -4,6 +4,7 @@
 @using System.Text
 @using barberchainAPI.Data
 @using barberchainAPI.Functional.Services
+@using Microsoft.EntityFrameworkCore;
 @inject BarberchainDbContext Context
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
@@ -115,7 +116,11 @@
 
     private async Task ApproveRequest(int requestId)
     {
-        var req = await Context.ScheduleRequests.FindAsync(requestId);
+        var req = await Context.ScheduleRequests
+            .Include(r => r.Barber)
+            .Where(r => r.Id == requestId)
+            .FirstAsync();
+
         var declinedOrderCount = !string.IsNullOrEmpty(req!.OrderIdsToDecline) ? req.OrderIdsToDecline?.Split(" ").Count() : 0;
 
         bool? confirmed = await DialogService.ShowMessageBox(
@@ -125,13 +130,20 @@
 
         if (confirmed != null && confirmed.Value)
         {
-            await ScReqService.ApproveRequestAsync(req);
+            await ScReqService.ApproveRequestAsync(req.Id);
+            var managerId = int.Parse(User!.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
+            requests = await ScReqService.LoadRequestsAsync(managerId);
+            StateHasChanged();
         }
     }
 
     private async Task DeclineRequest(int requestId)
     {
-        var req = await Context.ScheduleRequests.FindAsync(requestId);
+        var req = await Context.ScheduleRequests
+            .Include(r => r.Barber)
+            .Where(r => r.Id == requestId)
+            .FirstAsync();
+
         if (req != null)
         {
             var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Large, FullWidth = true };
@@ -146,7 +158,7 @@
             {
                 var updatedReq = dialogResult.Data as ScheduleRequest;
 
-                await ScReqService.NotifyBarberAsync(updatedReq!);
+                await ScReqService.NotifyBarberAsync(updatedReq!.Id);
                 var managerId = int.Parse(User!.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
                 requests = await ScReqService.LoadRequestsAsync(managerId);
                 StateHasChanged();

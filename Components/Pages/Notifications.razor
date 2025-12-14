@@ -72,6 +72,8 @@ else
 
     private List<NotificationViewModel> NotificationList { get; set; } = new();
 
+    private readonly SemaphoreSlim _dbLock = new(1, 1);
+
     protected override async Task OnInitializedAsync()
     {
         await InitList();
@@ -99,19 +101,26 @@ else
         if (n.IsViewed)
             return;
 
-        var record = await Context.AccountNotifications
-            .FirstOrDefaultAsync(a =>
-                a.AccountId == id &&
-                a.NotificationId == n.NotificationId);
+        await _dbLock.WaitAsync();
+        try
+        {
+            var record = await Context.AccountNotifications
+                .FirstOrDefaultAsync(a =>
+                    a.AccountId == id &&
+                    a.NotificationId == n.NotificationId);
 
-        if (record == null || record.IsViewed)
-            return;
+            if (record == null || record.IsViewed)
+                return;
 
-        record.IsViewed = true;
-        n.IsViewed = true;
+            record.IsViewed = true;
+            n.IsViewed = true;
 
-        await Context.SaveChangesAsync();
-        StateHasChanged();
+            await Context.SaveChangesAsync();
+        }
+        finally
+        {
+            _dbLock.Release();
+        }
     }
 
     // --- Helpers (icon, color, type name, relative time) ---
@@ -169,37 +178,56 @@ else
     {
         bool? confirmed = await DialogService.ShowMessageBox(
             "Подтвердите удаление",
-            $"Удалить все уведомления?",
+            "Удалить все уведомления?",
             yesText: "Удалить", cancelText: "Отмена");
 
-        if (confirmed == true)
+        if (confirmed != true)
+            return;
+
+        await _dbLock.WaitAsync();
+        try
         {
-            foreach (var n in NotificationList)
-            {
-                var not = await Context.Notifications.FindAsync(n.NotificationId);
-                Context.Notifications.Remove(not!);
-            }
+            var ids = NotificationList.Select(n => n.NotificationId).ToList();
+
+            var notifications = await Context.Notifications
+                .Where(n => ids.Contains(n.Id))
+                .ToListAsync();
+
+            Context.Notifications.RemoveRange(notifications);
             await Context.SaveChangesAsync();
-            await InitList();
-            StateHasChanged();
         }
+        finally
+        {
+            _dbLock.Release();
+        }
+
+        await InitList();
     }
 
     public async Task DeleteOne(int notId)
     {
         bool? confirmed = await DialogService.ShowMessageBox(
-            "Подтвердите удаление",
-            $"Удалить уведомление?",
-            yesText: "Удалить", cancelText: "Отмена");
+        "Подтвердите удаление",
+        "Удалить уведомление?",
+        yesText: "Удалить", cancelText: "Отмена");
 
-        if (confirmed == true)
+        if (confirmed != true)
+            return;
+
+        await _dbLock.WaitAsync();
+        try
         {
             var n = await Context.Notifications.FindAsync(notId);
+            if (n == null) return;
 
             Context.Notifications.Remove(n);
             await Context.SaveChangesAsync();
-            await InitList();
-            StateHasChanged();
         }
+        finally
+        {
+            _dbLock.Release();
+        }
+
+        await InitList();
     }
 }

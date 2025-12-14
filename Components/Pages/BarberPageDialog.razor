@@ -168,7 +168,7 @@
         </div>
 
         <div class="job-cart">
-            @if (cart != null && Barber != null)
+            @if (cart != null && JobSet != null)
             {
                 @foreach (var job in JobSet)
                 {
@@ -200,7 +200,7 @@
         }
         else
         {
-            @if (user != null && user.Identity!.IsAuthenticated && int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value) != Barber!.AccountId)
+            @if (user != null && user.Identity!.IsAuthenticated && Barber != null && int.Parse(user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value) != Barber!.AccountId)
             {
                 <MudButton Color="Color.Primary" OnClick="Submit">Перейти к оплате</MudButton>
             }
@@ -266,7 +266,7 @@
                 .Include(b => b.Bshop)
                     .ThenInclude(bs => bs.Barbers)
                         .ThenInclude(b => b.Account)
-                .FirstOrDefaultAsync(b => b.AccountId == BarberId);
+                .FirstOrDefaultAsync(b => b.Id == BarberId);
     }
 
     private async Task Submit()

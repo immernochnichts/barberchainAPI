@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using MudBlazor;
 using System.Collections;
 using System.Text;
+using System.Text.Json.Serialization.Metadata;
 
 namespace barberchainAPI.Functional.Services
 {
@@ -31,14 +32,20 @@ namespace barberchainAPI.Functional.Services
                 .ToListAsync();
         }
 
-        public async Task ApproveRequestAsync(ScheduleRequest req)
+        public async Task ApproveRequestAsync(int requestId)
         {
+            var req = await _context.ScheduleRequests
+                .Include(r => r.Barber)
+                .Where(r => r.Id == requestId)
+                .FirstAsync();
+
             var declinedOrderCount = !string.IsNullOrEmpty(req.OrderIdsToDecline) ? req.OrderIdsToDecline?.Split(" ").Count() : 0;
 
             if (req != null)
             {
                 var sched = await _context.BarberScheduleDays.Where(d => d.Date == req.RequestDate && d.BarberId == req.BarberId).FirstOrDefaultAsync();
                 req.Status = ScheduleRequestStatus.Approved;
+                await _context.SaveChangesAsync();
 
                 if (sched == null) // barber altered schedule that's not present in DB yet. We'll create it right now then. No orders could've been placed here
                 {
@@ -54,16 +61,17 @@ namespace barberchainAPI.Functional.Services
                 {
                     sched.AtuPattern = req.AtuPattern;
 
-                    await DeclineOrdersAsync(req);
+                    await DeclineOrdersAsync(requestId);
                 }
 
                 await _context.SaveChangesAsync();
-                await NotifyBarberAsync(req);
+                await NotifyBarberAsync(requestId);
             }
         }
 
-        private async Task DeclineOrdersAsync(ScheduleRequest req)
+        private async Task DeclineOrdersAsync(int requestId)
         {
+            var req = await _context.ScheduleRequests.FindAsync(requestId);
             bool firstTime = true;
             Notification not = default!;
 
@@ -111,13 +119,14 @@ namespace barberchainAPI.Functional.Services
                 order.Status = OrderStatus.Declined;
 
                 //var bsd = await _context.BarberScheduleDays.Where(d => d.Date == req.RequestDate && req.BarberId == d.BarberId).FirstAsync();
-
                 //await _orderService.EraseOrderFromScheduleAsync(bsd, order);
+                // no need to erase order from schedule as it will set the time slots to being available which is not what we want
             }
         }
 
-        public async Task NotifyBarberAsync(ScheduleRequest req)
+        public async Task NotifyBarberAsync(int requestId)
         {
+            var req = await _context.ScheduleRequests.FindAsync(requestId);
             Notification not = default!;
 
             if (req.Status == ScheduleRequestStatus.Approved)

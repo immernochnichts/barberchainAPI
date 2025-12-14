@@ -203,18 +203,34 @@ else
 
     private Cart? cart;
 
+    private bool _mapInitialized;
     protected override async Task OnAfterRenderAsync(bool firstTime)
     {
-        if (firstTime)
+        if (Barbershop == null)
+            return;
+
+        if (!_mapInitialized)
         {
+            _mapInitialized = true;
+
+            // Ensure DOM is ready
+            await Task.Yield();
+
             cart = await CartService.GetCart();
             StateHasChanged();
 
-            if (Barbershop != null)
-            {
-                await MapService.InitMapAsync("map", Barbershop.Latitude, Barbershop.Longitude, 16);
-                await MapService.AddMarkerAsync(Barbershop.Id.ToString(), Barbershop.Latitude, Barbershop.Longitude);
-            }
+            await MapService.InitMapAsync(
+                "map",
+                Barbershop.Latitude,
+                Barbershop.Longitude,
+                16
+            );
+
+            await MapService.AddMarkerAsync(
+                Barbershop.Id.ToString(),
+                Barbershop.Latitude,
+                Barbershop.Longitude
+            );
         }
     }
 

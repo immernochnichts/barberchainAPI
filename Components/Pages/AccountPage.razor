@@ -224,7 +224,7 @@ else
         if (!string.IsNullOrEmpty(ComponentQuery)
             && Enum.TryParse<AccountComponent>(ComponentQuery, true, out var comp))
         {
-            if (user == null)
+            if (user?.Identity?.IsAuthenticated != true)
             {
                 CurrentComponent = AccountComponent.Profile;
                 return;

@@ -184,31 +184,31 @@ namespace barberchainAPI.Data
                 .IsRequired(false); // explicitly nullable
 
             /* Adjustments for in-memory db */
-            //var bitArrayConverter = new ValueConverter<BitArray, byte[]>(
-            //    v => BitArrayToBytes(v),
-            //    v => BytesToBitArray(v)
-            //);
+            var bitArrayConverter = new ValueConverter<BitArray, byte[]>(
+                v => BitArrayToBytes(v),
+                v => BytesToBitArray(v)
+            );
 
-            //var bitArrayComparer = new ValueComparer<BitArray>(
-            //    (a, b) => a != null && b != null && a.Cast<bool>().SequenceEqual(b.Cast<bool>()),
-            //    a => a == null ? 0 : a.Cast<bool>().Aggregate(0, (h, v) => (h * 31) ^ v.GetHashCode()),
-            //    a => a == null ? null! : new BitArray(a) // deep copy
-            //);
+            var bitArrayComparer = new ValueComparer<BitArray>(
+                (a, b) => a != null && b != null && a.Cast<bool>().SequenceEqual(b.Cast<bool>()),
+                a => a == null ? 0 : a.Cast<bool>().Aggregate(0, (h, v) => (h * 31) ^ v.GetHashCode()),
+                a => a == null ? null! : new BitArray(a) // deep copy
+            );
 
-            //modelBuilder.Entity<BarberScheduleDay>()
-            //    .Property(b => b.AtuPattern)
-            //    .HasConversion(bitArrayConverter)
-            //    .Metadata.SetValueComparer(bitArrayComparer);
+            modelBuilder.Entity<BarberScheduleDay>()
+                .Property(b => b.AtuPattern)
+                .HasConversion(bitArrayConverter)
+                .Metadata.SetValueComparer(bitArrayComparer);
 
-            //modelBuilder.Entity<Barbershop>()
-            //    .Property(b => b.DefaultSchedule)
-            //    .HasConversion(bitArrayConverter)
-            //    .Metadata.SetValueComparer(bitArrayComparer);
+            modelBuilder.Entity<Barbershop>()
+                .Property(b => b.DefaultSchedule)
+                .HasConversion(bitArrayConverter)
+                .Metadata.SetValueComparer(bitArrayComparer);
 
-            //modelBuilder.Entity<ScheduleRequest>()
-            //    .Property(r => r.AtuPattern)
-            //    .HasConversion(bitArrayConverter)
-            //    .Metadata.SetValueComparer(bitArrayComparer);
+            modelBuilder.Entity<ScheduleRequest>()
+                .Property(r => r.AtuPattern)
+                .HasConversion(bitArrayConverter)
+                .Metadata.SetValueComparer(bitArrayComparer);
         }
 
         public static byte[] BitArrayToBytes(BitArray bits)

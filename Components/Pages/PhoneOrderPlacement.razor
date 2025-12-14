@@ -5,6 +5,7 @@
 @inject IProfileService ProfileService
 @inject INotificationService NotificationService
 @inject BarberchainDbContext Context
+@inject ISnackbar Snackbar
 
 <MudPaper Class="pa-4">
     <MudContainer Style="margin-bottom: 12px; border-radius: 0.5rem; border: 1px solid black; width: 80%;">
@@ -76,7 +77,10 @@
     private async Task OpenBookDialogAsync()
     {
         var atuPattern = await ProfileService.GetAvailabilityForDayAsync(_selectedBarber.Id, _selectedDate);
-        IEnumerable<Job> jobSet = _selectedBarber.BarberJobs.Select(x => x.Job);
+        var jobSet = Context.BarberJobs
+            .Include(bj => bj.Job)
+            .Where(bj => bj.BarberId == _selectedBarber.Id)
+            .Select(bj => bj.Job);
 
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.ExtraExtraLarge, FullWidth = true };
         var params_ = new DialogParameters<BarberPageDialog> {
@@ -94,9 +98,11 @@
         {
             orderBeingCreated = (dialogRes.Data as Order)!;
 
-            await NotificationService.NotifyAsync(barber.AccountId!.Value,
+            await NotificationService.NotifyAsync(_selectedBarber.AccountId!.Value,
                 $"У вас новый заказ #{orderBeingCreated.Id} на {orderBeingCreated.AppointedTime}\nУслуги: " + string.Join(", ", Context.OrderJobs.Where(oj => oj.OrderId == orderBeingCreated.Id).Select(oj => oj.Job.Name)),
                 NotificationType.General);
+
+            Snackbar.Add($"Успешно добавлен новый заказ по телефону", Severity.Success);
         }
     }
 }
