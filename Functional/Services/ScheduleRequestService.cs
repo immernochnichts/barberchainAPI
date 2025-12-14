@@ -65,7 +65,7 @@ namespace barberchainAPI.Functional.Services
                 }
 
                 await _context.SaveChangesAsync();
-                await NotifyBarberAsync(requestId);
+                await NotifyBarberAsync(req);
             }
         }
 
@@ -124,9 +124,8 @@ namespace barberchainAPI.Functional.Services
             }
         }
 
-        public async Task NotifyBarberAsync(int requestId)
+        public async Task NotifyBarberAsync(ScheduleRequest req)
         {
-            var req = await _context.ScheduleRequests.FindAsync(requestId);
             Notification not = default!;
 
             if (req.Status == ScheduleRequestStatus.Approved)

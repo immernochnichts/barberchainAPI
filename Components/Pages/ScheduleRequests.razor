@@ -156,10 +156,16 @@
 
             if (dialogResult != null && !dialogResult.Canceled)
             {
-                var updatedReq = dialogResult.Data as ScheduleRequest;
+                var reasonRejected = dialogResult.Data as string;
 
-                await ScReqService.NotifyBarberAsync(updatedReq!.Id);
+                req.Status = ScheduleRequestStatus.Rejected;
+                req.ReasonRejected = reasonRejected;
+
+                await Context.SaveChangesAsync();
+
+                await ScReqService.NotifyBarberAsync(req);
                 var managerId = int.Parse(User!.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
+                Snackbar.Add("Заявка успешно отклонена.", Severity.Info);
                 requests = await ScReqService.LoadRequestsAsync(managerId);
                 StateHasChanged();
             }

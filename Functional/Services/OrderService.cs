@@ -30,7 +30,7 @@ namespace barberchainAPI.Functional.Services
                 }
             }
 
-            _context.BarberScheduleDays.Update(bsd);
+            _context.BarberScheduleDays.Update(bsd); // randomly leaving this here for the edgecase where a guest's order is placed
             await _context.SaveChangesAsync();
         }
 
@@ -53,7 +53,15 @@ namespace barberchainAPI.Functional.Services
                     bsd.AtuPattern[i] = true;
                 }
             }
-            _context.BarberScheduleDays.Update(bsd);
+
+            var tracked = _context.BarberScheduleDays
+                .Local
+                .FirstOrDefault(x => x.Id == bsd.Id);
+
+            if (tracked == null)
+            {
+                _context.BarberScheduleDays.Update(bsd);
+            }
 
             await _context.SaveChangesAsync();
         }

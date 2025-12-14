@@ -6,6 +6,6 @@ namespace barberchainAPI.Functional.Services
     {
         Task ApproveRequestAsync(int requestId);
         Task<List<ScheduleRequest>> LoadRequestsAsync(int managerId);
-        Task NotifyBarberAsync(int requestId);
+        Task NotifyBarberAsync(ScheduleRequest req);
     }
 }

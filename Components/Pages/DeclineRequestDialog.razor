@@ -44,14 +44,7 @@
 
     private async Task Save()
     {
-        Request.Status = ScheduleRequestStatus.Rejected;
-        Request.ReasonRejected = _reason;
-
-        await Context.SaveChangesAsync();
-
-        Snackbar.Add("Заявка успешно отклонена.", Severity.Info);
-
-        MudDialog.Close(Request);
+        MudDialog.Close(_reason);
     }
 
     private void Cancel()
